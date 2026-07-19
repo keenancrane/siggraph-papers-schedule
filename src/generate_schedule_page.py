@@ -17,6 +17,48 @@ IMAGE_BASE = (
 )
 SOURCE_URL = "https://s2026.conference-schedule.org/?filter1=sstype132"
 
+# Compact labels for filter chips only (data-filter-value stays full).
+FILTER_DISPLAY_LABELS = {
+    "Virtual Reality": "VR",
+    "Artificial Intelligence/Machine Learning": "AI/ML",
+}
+
+GOOGLE_CALENDAR_ICON = """
+<svg viewBox="0 0 24 24" aria-hidden="true">
+  <rect x="3" y="4" width="18" height="18" rx="2" fill="#fff" stroke="#dadce0" stroke-width="0.8"/>
+  <rect x="3" y="4" width="18" height="5" fill="#1a73e8"/>
+  <rect x="6" y="2" width="2.2" height="4" rx="1" fill="#1a73e8"/>
+  <rect x="15.8" y="2" width="2.2" height="4" rx="1" fill="#1a73e8"/>
+  <rect x="6" y="12" width="3" height="3" rx="0.5" fill="#1a73e8"/>
+  <rect x="10.5" y="12" width="3" height="3" rx="0.5" fill="#fbbc04"/>
+  <rect x="15" y="12" width="3" height="3" rx="0.5" fill="#34a853"/>
+  <rect x="6" y="16.5" width="3" height="3" rx="0.5" fill="#ea4335"/>
+  <rect x="10.5" y="16.5" width="3" height="3" rx="0.5" fill="#4285f4"/>
+</svg>
+""".strip()
+
+APPLE_CALENDAR_ICON = """
+<svg viewBox="0 0 24 24" aria-hidden="true">
+  <rect x="3" y="4" width="18" height="18" rx="4.5" fill="#ff3b30"/>
+  <rect x="3" y="4" width="18" height="6" fill="#fff" opacity="0.96"/>
+  <rect x="7" y="2.2" width="1.8" height="4.2" rx="0.9" fill="#d9d9d9"/>
+  <rect x="15.2" y="2.2" width="1.8" height="4.2" rx="0.9" fill="#d9d9d9"/>
+  <rect x="7" y="13" width="10" height="1.2" rx="0.6" fill="#fff" opacity="0.95"/>
+  <rect x="7" y="16" width="10" height="1.2" rx="0.6" fill="#fff" opacity="0.85"/>
+</svg>
+""".strip()
+
+OUTLOOK_CALENDAR_ICON = """
+<svg viewBox="0 0 24 24" aria-hidden="true">
+  <rect x="3" y="4" width="18" height="18" rx="2" fill="#0078d4"/>
+  <rect x="3" y="4" width="18" height="5" fill="#106ebe"/>
+  <rect x="6" y="2" width="2.2" height="4" rx="1" fill="#106ebe"/>
+  <rect x="15.8" y="2" width="2.2" height="4" rx="1" fill="#106ebe"/>
+  <path d="M8.2 12.2h7.6c1.2 0 2.2 1 2.2 2.2v3.2c0 1.2-1 2.2-2.2 2.2H8.2c-1.2 0-2.2-1-2.2-2.2v-3.2c0-1.2 1-2.2 2.2-2.2z" fill="#fff"/>
+  <path d="M8.8 14.2h6.4v1.1H8.8zm0 2.2h4.6v1.1H8.8z" fill="#0078d4"/>
+</svg>
+""".strip()
+
 
 def format_date(date_str: str) -> str:
     dt = datetime.strptime(date_str, "%Y-%m-%d")
@@ -100,6 +142,72 @@ def tooltip_text(paper: dict) -> str:
     return " · ".join(lines)
 
 
+def format_ics_datetime(iso_time: str) -> str:
+    return iso_time.replace("-", "").replace(":", "")
+
+
+def ics_filename(title: str) -> str:
+    safe = re.sub(r"[^\w\s-]", "", title or "", flags=re.UNICODE)
+    safe = re.sub(r"[-\s]+", "-", safe).strip("-")
+    return (safe[:60] or "siggraph-paper") + ".ics"
+
+
+def google_calendar_url(paper: dict) -> str:
+    start = paper.get("presentation_start_utc") or paper.get("start_time_utc", "")
+    end = paper.get("presentation_end_utc") or paper.get("end_time_utc", "")
+    if not start or not end:
+        return ""
+
+    details_lines = []
+    if paper.get("authors_all"):
+        details_lines.append(f"Authors: {paper['authors_all']}")
+    session_title = clean_session_title(paper.get("session_title", ""))
+    if session_title:
+        details_lines.append(f"Session: {session_title}")
+    if paper.get("url"):
+        details_lines.append(paper["url"])
+
+    params = urllib.parse.urlencode(
+        {
+            "action": "TEMPLATE",
+            "text": paper.get("title", ""),
+            "dates": f"{format_ics_datetime(start)}/{format_ics_datetime(end)}",
+            "details": "\n".join(details_lines),
+            "location": paper.get("session_room", ""),
+        }
+    )
+    return f"https://calendar.google.com/calendar/render?{params}"
+
+
+def render_calendar_links(paper: dict) -> str:
+    google_url = google_calendar_url(paper)
+    ics_url = paper.get("calendar_url", "")
+    if not google_url and not ics_url:
+        return ""
+
+    ics_name = html.escape(ics_filename(paper.get("title", "")), quote=True)
+    links = []
+
+    if google_url:
+        links.append(
+            f'<a class="cal-add cal-add-google" href="{html.escape(google_url, quote=True)}" '
+            f'target="_blank" rel="noopener" title="Add to Google Calendar">{GOOGLE_CALENDAR_ICON}</a>'
+        )
+
+    if ics_url:
+        escaped_ics = html.escape(ics_url, quote=True)
+        links.append(
+            f'<a class="cal-add cal-add-apple" href="{escaped_ics}" download="{ics_name}" '
+            f'title="Add to Apple Calendar">{APPLE_CALENDAR_ICON}</a>'
+        )
+        links.append(
+            f'<a class="cal-add cal-add-outlook" href="{escaped_ics}" download="{ics_name}" '
+            f'title="Add to Outlook">{OUTLOOK_CALENDAR_ICON}</a>'
+        )
+
+    return f'<div class="paper-calendars">{"".join(links)}</div>'
+
+
 def build_structure(papers: list) -> OrderedDict:
     days = OrderedDict()
     for paper in papers:
@@ -157,9 +265,11 @@ def render_paper(paper: dict) -> str:
     )
     topic_data = html.escape("|".join(topics), quote=True)
     room_data = html.escape(paper.get("session_room", ""), quote=True)
+    calendar_links = render_calendar_links(paper)
 
     return f"""
     <article class="paper" data-search="{search_blob}" data-topics="{topic_data}" data-room="{room_data}" title="{tip}">
+      {calendar_links}
       {img_html}
       <div class="paper-body">
         <div class="paper-meta">
@@ -221,43 +331,68 @@ def render_day(date: str, sessions: OrderedDict) -> str:
     """
 
 
-def render_filter_buttons(label: str, group: str, values: list[str]) -> str:
+def filter_display_label(value: str, group: str) -> str:
+    if value in FILTER_DISPLAY_LABELS:
+        return FILTER_DISPLAY_LABELS[value]
+    if group == "room" and value.startswith("Room "):
+        return value[5:]
+    return value
+
+
+def render_filter_buttons(
+    label: str,
+    group: str,
+    values: list[str],
+    *,
+    trailing_html: str = "",
+) -> str:
     buttons = []
     for value in values:
         slug = html.escape(value, quote=True)
+        display = html.escape(filter_display_label(value, group))
+        title_attr = (
+            f' title="{html.escape(value, quote=True)}"'
+            if filter_display_label(value, group) != value
+            else ""
+        )
         buttons.append(
             f'<button type="button" class="filter-btn active" '
-            f'data-filter-group="{group}" data-filter-value="{slug}">{html.escape(value)}</button>'
+            f'data-filter-group="{group}" data-filter-value="{slug}"{title_attr}>{display}</button>'
         )
+    trailing = f'<div class="filter-trailing">{trailing_html}</div>' if trailing_html else ""
     return f"""
     <div class="filter-group" data-filter-group="{group}">
-      <div class="filter-group-head">
-        <span class="filter-label">{html.escape(label)}</span>
-        <span class="filter-actions">
-          <button type="button" class="filter-action" data-filter-action="all-on" data-filter-group="{group}">All on</button>
-          <button type="button" class="filter-action" data-filter-action="all-off" data-filter-group="{group}">All off</button>
-        </span>
+      <div class="filter-row">
+        <div class="filter-heading">
+          <span class="filter-label">{html.escape(label)}</span>
+          <span class="filter-actions" role="group" aria-label="{html.escape(label)} selection">
+            <button type="button" class="filter-action" data-filter-action="all-on" data-filter-group="{group}">All</button>
+            <span class="filter-action-sep" aria-hidden="true">|</span>
+            <button type="button" class="filter-action" data-filter-action="all-off" data-filter-group="{group}">None</button>
+          </span>
+        </div>
+        <div class="filter-buttons">{''.join(buttons)}</div>
+        {trailing}
       </div>
-      <div class="filter-buttons">{''.join(buttons)}</div>
     </div>
     """
 
 
 def render_filters(keywords: list[str], rooms: list[str], total: int) -> str:
+    match_count = (
+        f'<span class="match-count" id="match-count">{total} of {total} papers</span>'
+    )
     return f"""
     <div class="filters" id="filters">
       <div class="filters-top">
         <span class="filters-title">Filters</span>
         <div class="filters-controls">
           <a class="to-calendar" href="#calendar">↑ Calendar</a>
-          <button type="button" class="clear-filters" id="clear-filters">Clear Filters</button>
+          <button type="button" class="clear-filters" id="clear-filters">Clear</button>
         </div>
       </div>
       {render_filter_buttons("Keywords", "keyword", keywords)}
-      {render_filter_buttons("Rooms", "room", rooms)}
-      <div class="filters-footer">
-        <span class="match-count" id="match-count">{total} of {total} papers</span>
-      </div>
+      {render_filter_buttons("Rooms", "room", rooms, trailing_html=match_count)}
     </div>
     """
 
@@ -317,7 +452,7 @@ def generate_html(data: dict) -> str:
       --navy-soft: #24324a;
       --shadow: 0 10px 30px rgba(20, 32, 51, 0.08);
       --radius: 16px;
-      --sticky-offset: 140px;
+      --sticky-offset: 110px;
     }}
 
     * {{ box-sizing: border-box; }}
@@ -423,18 +558,18 @@ def generate_html(data: dict) -> str:
       position: sticky;
       top: 0;
       z-index: 20;
-      margin-top: 12px;
-      padding: 8px 0 10px;
+      margin-top: 10px;
+      padding: 6px 0 8px;
       backdrop-filter: blur(10px);
       background: rgba(244, 241, 236, 0.92);
       border-bottom: 1px solid rgba(221, 215, 206, 0.8);
     }}
 
     .filters {{
-      padding: 8px 12px 10px;
+      padding: 6px 10px 7px;
       background: var(--surface);
       border: 1px solid var(--line);
-      border-radius: 12px;
+      border-radius: 10px;
       box-shadow: var(--shadow);
     }}
 
@@ -442,13 +577,13 @@ def generate_html(data: dict) -> str:
       display: flex;
       justify-content: space-between;
       align-items: center;
-      gap: 10px;
-      margin-bottom: 8px;
+      gap: 8px;
+      margin-bottom: 5px;
     }}
 
     .filters-title {{
       font-weight: 700;
-      font-size: 0.78rem;
+      font-size: 0.7rem;
       letter-spacing: 0.05em;
       text-transform: uppercase;
       color: var(--navy);
@@ -457,7 +592,7 @@ def generate_html(data: dict) -> str:
     .filters-controls {{
       display: flex;
       align-items: center;
-      gap: 8px;
+      gap: 6px;
       flex-wrap: wrap;
     }}
 
@@ -466,8 +601,8 @@ def generate_html(data: dict) -> str:
       background: #f7f4ef;
       color: var(--navy);
       border-radius: 999px;
-      padding: 4px 10px;
-      font-size: 0.74rem;
+      padding: 2px 8px;
+      font-size: 0.68rem;
       font-weight: 600;
       text-decoration: none;
       white-space: nowrap;
@@ -485,9 +620,9 @@ def generate_html(data: dict) -> str:
       background: #f7f4ef;
       color: var(--muted);
       border-radius: 999px;
-      padding: 4px 10px;
+      padding: 2px 8px;
       font: inherit;
-      font-size: 0.74rem;
+      font-size: 0.68rem;
       font-weight: 600;
       cursor: pointer;
       white-space: nowrap;
@@ -498,34 +633,48 @@ def generate_html(data: dict) -> str:
       background: var(--accent-soft);
       color: var(--accent);
       border-color: rgba(212, 75, 38, 0.35);
-      box-shadow: 0 0 0 3px rgba(212, 75, 38, 0.12);
+      box-shadow: 0 0 0 2px rgba(212, 75, 38, 0.12);
     }}
 
     .filter-group + .filter-group {{
-      margin-top: 7px;
-      padding-top: 7px;
+      margin-top: 5px;
+      padding-top: 5px;
       border-top: 1px solid rgba(221, 215, 206, 0.8);
     }}
 
-    .filter-group-head {{
+    .filter-row {{
       display: flex;
-      justify-content: space-between;
       align-items: center;
-      gap: 10px;
-      margin-bottom: 5px;
+      flex-wrap: wrap;
+      gap: 4px 8px;
+    }}
+
+    .filter-heading {{
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      flex: 0 0 auto;
+      margin-right: 2px;
     }}
 
     .filter-label {{
-      font-size: 0.7rem;
+      font-size: 0.64rem;
       font-weight: 700;
       color: var(--muted);
       text-transform: uppercase;
       letter-spacing: 0.05em;
+      white-space: nowrap;
     }}
 
     .filter-actions {{
-      display: flex;
-      gap: 6px;
+      display: inline-flex;
+      align-items: center;
+      gap: 0;
+      border: 1px solid var(--line);
+      border-radius: 999px;
+      background: #f7f4ef;
+      padding: 0 2px;
+      line-height: 1;
     }}
 
     .filter-action {{
@@ -533,20 +682,35 @@ def generate_html(data: dict) -> str:
       background: transparent;
       color: var(--accent);
       font: inherit;
-      font-size: 0.68rem;
+      font-size: 0.64rem;
       font-weight: 600;
       cursor: pointer;
-      padding: 0;
+      padding: 2px 7px;
+      border-radius: 999px;
     }}
 
     .filter-action:hover {{
-      text-decoration: underline;
+      background: rgba(212, 75, 38, 0.1);
+    }}
+
+    .filter-action-sep {{
+      color: #c5beb4;
+      font-size: 0.64rem;
+      line-height: 1;
+      user-select: none;
     }}
 
     .filter-buttons {{
       display: flex;
       flex-wrap: wrap;
-      gap: 5px;
+      gap: 3px;
+      flex: 1 1 auto;
+      min-width: 0;
+    }}
+
+    .filter-trailing {{
+      flex: 0 0 auto;
+      margin-left: auto;
     }}
 
     .filter-btn {{
@@ -554,10 +718,10 @@ def generate_html(data: dict) -> str:
       background: #faf8f5;
       color: var(--ink);
       border-radius: 999px;
-      padding: 3px 8px;
+      padding: 1px 6px;
       font: inherit;
-      font-size: 0.72rem;
-      line-height: 1.3;
+      font-size: 0.68rem;
+      line-height: 1.35;
       cursor: pointer;
       transition: background 0.12s ease, border-color 0.12s ease, color 0.12s ease, opacity 0.12s ease;
     }}
@@ -572,19 +736,12 @@ def generate_html(data: dict) -> str:
       opacity: 0.72;
     }}
 
-    .filters-footer {{
-      display: flex;
-      justify-content: flex-end;
-      margin-top: 7px;
-      padding-top: 6px;
-      border-top: 1px solid rgba(221, 215, 206, 0.65);
-    }}
-
     .match-count {{
-      font-size: 0.72rem;
+      font-size: 0.68rem;
       color: var(--muted);
       font-variant-numeric: tabular-nums;
       white-space: nowrap;
+      line-height: 1.35;
     }}
 
     .match-count.filtered {{
@@ -606,11 +763,10 @@ def generate_html(data: dict) -> str:
       border-radius: var(--radius);
       overflow: hidden;
       box-shadow: var(--shadow);
-      transition: transform 0.15s ease, border-color 0.15s ease;
+      transition: border-color 0.15s ease;
     }}
 
     .day-card:hover {{
-      transform: translateY(-2px);
       border-color: var(--accent);
     }}
 
@@ -618,7 +774,7 @@ def generate_html(data: dict) -> str:
       display: flex;
       justify-content: space-between;
       align-items: baseline;
-      padding: 12px 14px 8px;
+      padding: 10px 12px 7px;
       background: var(--accent-soft);
       border-bottom: 1px solid var(--line);
       text-decoration: none;
@@ -645,17 +801,19 @@ def generate_html(data: dict) -> str:
     .day-card-sessions {{
       display: grid;
       gap: 0;
-      max-height: 220px;
+      max-height: 200px;
       overflow: auto;
+      overscroll-behavior: contain;
+      -webkit-overflow-scrolling: touch;
     }}
 
     .cal-session {{
       display: block;
-      padding: 8px 12px;
+      padding: 6px 10px;
       text-decoration: none;
       color: inherit;
       border-top: 1px solid rgba(221, 215, 206, 0.65);
-      font-size: 0.82rem;
+      font-size: 0.78rem;
     }}
 
     .cal-session:hover {{
@@ -665,16 +823,16 @@ def generate_html(data: dict) -> str:
     .cal-time {{
       display: block;
       color: var(--muted);
-      font-size: 0.76rem;
-      line-height: 1.25;
-      margin-bottom: 3px;
+      font-size: 0.7rem;
+      line-height: 1.2;
+      margin-bottom: 2px;
       font-variant-numeric: tabular-nums;
     }}
 
     .cal-title {{
       display: block;
       color: var(--ink);
-      line-height: 1.35;
+      line-height: 1.3;
     }}
 
     .cal-session.hidden {{
@@ -766,16 +924,48 @@ def generate_html(data: dict) -> str:
     }}
 
     .paper {{
+      position: relative;
       display: grid;
       grid-template-columns: 92px 1fr;
       gap: 16px;
-      padding: 16px 20px;
+      padding: 16px 88px 16px 20px;
       border-top: 1px solid rgba(221, 215, 206, 0.8);
       transition: background 0.12s ease;
     }}
 
     .paper:first-child {{ border-top: 0; }}
     .paper:hover {{ background: #fcfbfa; }}
+
+    .paper-calendars {{
+      position: absolute;
+      top: 12px;
+      right: 14px;
+      display: flex;
+      gap: 5px;
+      align-items: center;
+    }}
+
+    .cal-add {{
+      display: inline-flex;
+      width: 22px;
+      height: 22px;
+      border-radius: 6px;
+      overflow: hidden;
+      opacity: 0.88;
+      transition: transform 0.12s ease, opacity 0.12s ease, box-shadow 0.12s ease;
+    }}
+
+    .cal-add:hover {{
+      opacity: 1;
+      transform: translateY(-1px);
+      box-shadow: 0 2px 8px rgba(20, 32, 51, 0.12);
+    }}
+
+    .cal-add svg {{
+      display: block;
+      width: 22px;
+      height: 22px;
+    }}
 
     .thumb {{
       width: 92px;
@@ -869,16 +1059,38 @@ def generate_html(data: dict) -> str:
     .hidden {{ display: none !important; }}
 
     @media (max-width: 980px) {{
-      .calendar {{ grid-template-columns: repeat(2, minmax(0, 1fr)); }}
+      .calendar {{
+        display: flex;
+        gap: 10px;
+        overflow-x: auto;
+        overscroll-behavior-x: contain;
+        scroll-snap-type: x mandatory;
+        -webkit-overflow-scrolling: touch;
+        padding-bottom: 2px;
+      }}
+
+      .day-card {{
+        flex: 0 0 min(72vw, 260px);
+        scroll-snap-align: start;
+      }}
+
+      .day-card-sessions {{
+        max-height: none;
+        overflow: visible;
+      }}
     }}
 
     @media (max-width: 640px) {{
       .page {{ padding-inline: 14px; }}
-      .calendar {{ grid-template-columns: 1fr; }}
       .paper {{ grid-template-columns: 72px 1fr; gap: 12px; }}
       .thumb {{ width: 72px; height: 54px; }}
       .session-header, .paper {{ padding-inline: 14px; }}
-      .filters-top {{ align-items: flex-start; flex-direction: column; }}
+      .paper {{ padding-right: 78px; }}
+      .paper-calendars {{ right: 10px; }}
+      .filter-trailing {{
+        width: auto;
+        margin-top: 0;
+      }}
     }}
   </style>
 </head>
@@ -1060,8 +1272,10 @@ def generate_html(data: dict) -> str:
 def main():
     with JSON_PATH.open(encoding="utf-8") as handle:
         data = json.load(handle)
-    HTML_PATH.write_text(generate_html(data), encoding="utf-8")
-    print(f"Wrote {HTML_PATH} ({HTML_PATH.stat().st_size // 1024} KB)")
+    content = generate_html(data)
+    for path in (HTML_PATH, Path("index.html")):
+        path.write_text(content, encoding="utf-8")
+        print(f"Wrote {path} ({path.stat().st_size // 1024} KB)")
 
 
 if __name__ == "__main__":
