@@ -1385,6 +1385,7 @@ def generate_html(data: dict) -> str:
       <h1>SIGGRAPH 2026 Technical Papers</h1>
       <p>Build your schedule by selecting papers and copying / sharing / saving to calendar.</p>
       <p>You can save either individual talks or the selected schedule to your calendar.</p>
+      <p>Enable filters to search by string, keyword, or room number.</p>
       <div class="hero-downloads">
         <a href="{html.escape(CSV_PATH.name)}" download>Download CSV</a>
         <a href="{html.escape(JSON_PATH.name)}" download>Download JSON</a>
@@ -1753,6 +1754,13 @@ def generate_html(data: dict) -> str:
       document.documentElement.style.setProperty('--sticky-offset', `${{offset}}px`);
     }}
 
+    function setFiltersCollapsed(collapsed) {{
+      filtersEl.classList.toggle('collapsed', collapsed);
+      filtersToggle.textContent = collapsed ? 'Show' : 'Hide';
+      filtersToggle.setAttribute('aria-expanded', collapsed ? 'false' : 'true');
+      updateStickyOffset();
+    }}
+
     function paperMatchesFilters(paper) {{
       if (showSelectedOnly) {{
         return selectedIds.has(paper.dataset.paperId);
@@ -1924,10 +1932,7 @@ def generate_html(data: dict) -> str:
     search.addEventListener('input', applyFilters);
 
     filtersToggle.addEventListener('click', () => {{
-      const collapsed = filtersEl.classList.toggle('collapsed');
-      filtersToggle.textContent = collapsed ? 'Show' : 'Hide';
-      filtersToggle.setAttribute('aria-expanded', collapsed ? 'false' : 'true');
-      updateStickyOffset();
+      setFiltersCollapsed(!filtersEl.classList.contains('collapsed'));
     }});
 
     window.addEventListener('load', updateStickyOffset);
@@ -1935,7 +1940,7 @@ def generate_html(data: dict) -> str:
 
     loadSelection();
     updateSelectionUI();
-    updateStickyOffset();
+    setFiltersCollapsed(window.matchMedia('(max-width: 640px)').matches);
     applyFilters();
   </script>
 </body>
