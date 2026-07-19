@@ -123,23 +123,10 @@ def format_authors(authors: list) -> str:
     for author in authors:
         name = html.escape(author["name"])
         if author.get("presenting"):
-            parts.append(f"<strong>{name}</strong>")
+            parts.append(f'<span class="presenting">{name}</span>')
         else:
             parts.append(name)
     return ", ".join(parts)
-
-
-def tooltip_text(paper: dict) -> str:
-    lines = []
-    keywords = paper.get("keywords") or []
-    tracks = meaningful_tracks(paper.get("tracks") or [])
-    if keywords:
-        lines.append("Keywords: " + ", ".join(keywords))
-    if tracks:
-        lines.append("Tracks: " + ", ".join(tracks))
-    if paper.get("paper_category") == "TOG Journal Paper":
-        lines.append("ACM TOG journal paper")
-    return " · ".join(lines)
 
 
 def format_ics_datetime(iso_time: str) -> str:
@@ -228,10 +215,6 @@ def render_paper(paper: dict) -> str:
         f"{paper.get('start_time_display', '')}–{paper.get('end_time_display', '')}"
     )
     img = image_url(paper.get("representative_image", ""))
-    tip = html.escape(tooltip_text(paper), quote=True)
-    badge = (
-        '<span class="badge tog">TOG</span>' if paper.get("paper_category") == "TOG Journal Paper" else ""
-    )
     tracks = meaningful_tracks(paper.get("tracks") or [])
     tag_html = "".join(f'<span class="tag">{html.escape(t)}</span>' for t in tracks[:3])
 
@@ -273,21 +256,24 @@ def render_paper(paper: dict) -> str:
     time_display = html.escape(time_range, quote=True)
 
     return f"""
-    <article class="paper" data-paper-id="{paper_id}" data-date="{date}" data-start="{start_utc}" data-end="{end_utc}" data-time="{time_display}" data-session="{session_title}" data-authors="{authors_plain}" data-title="{title_attr}" data-url="{url}" data-search="{search_blob}" data-topics="{topic_data}" data-room="{room_data}" title="{tip}">
-      <button type="button" class="select-talk" aria-pressed="false" aria-label="Add to my schedule" title="Add to my schedule">
-        <svg class="select-icon" viewBox="0 0 20 20" aria-hidden="true">
-          <circle class="select-ring" cx="10" cy="10" r="7.25" fill="none" stroke="currentColor" stroke-width="1.6"/>
-          <path class="select-plus" d="M10 6.5v7M6.5 10h7" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/>
-          <path class="select-check" d="M6.6 10.2l2.2 2.2 4.6-4.8" fill="none" stroke="#fff" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>
-        </svg>
-      </button>
+    <article class="paper" data-paper-id="{paper_id}" data-date="{date}" data-start="{start_utc}" data-end="{end_utc}" data-time="{time_display}" data-session="{session_title}" data-authors="{authors_plain}" data-title="{title_attr}" data-url="{url}" data-search="{search_blob}" data-topics="{topic_data}" data-room="{room_data}">
+      <div class="paper-media">
+        {img_html}
+        <button type="button" class="select-talk" aria-pressed="false" aria-label="Add to my schedule" title="Add to my schedule">
+          <svg class="select-icon" viewBox="0 0 20 20" aria-hidden="true">
+            <circle class="select-ring" cx="10" cy="10" r="7.25" fill="none" stroke="currentColor" stroke-width="1.6"/>
+            <path class="select-plus" d="M10 6.5v7M6.5 10h7" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/>
+            <path class="select-check" d="M6.6 10.2l2.2 2.2 4.6-4.8" fill="none" stroke="#fff" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>
+          </svg>
+        </button>
+      </div>
       {calendar_links}
-      {img_html}
       <div class="paper-body">
         <div class="paper-meta">
-          <time>{html.escape(time_range)}</time>
-          {badge}
-          {tag_html}
+          <div class="paper-time-row">
+            <time><span class="conflict-mark" aria-hidden="true">⚠️</span>{html.escape(time_range)}</time>
+          </div>
+          {f'<div class="paper-tags">{tag_html}</div>' if tag_html else ''}
         </div>
         <h4 class="paper-title"><a href="{url}" target="_blank" rel="noopener">{title}</a></h4>
         <p class="authors">{authors}</p>
@@ -312,15 +298,12 @@ def render_session(session: dict) -> str:
     <section class="session" data-search="{search_blob}" data-room="{html.escape(session.get('room', ''), quote=True)}">
       <span class="scroll-anchor" id="session-{html.escape(session_id)}"></span>
       <header class="session-header">
-        <div>
-          <h3>{title}</h3>
-          <p class="session-details">
-            <span class="time">{html.escape(time_range)}</span>
-            <span class="room">{room}</span>
-            {chair_html}
-          </p>
-        </div>
-        <span class="count">{len(session["papers"])} papers</span>
+        <h3>{title}</h3>
+        <p class="session-details">
+          <span class="time">{html.escape(time_range)}</span>
+          <span class="room">{room}</span>
+          {chair_html}
+        </p>
       </header>
       <div class="papers">{papers_html}</div>
     </section>
@@ -397,14 +380,23 @@ def render_filters(keywords: list[str], rooms: list[str], total: int) -> str:
     return f"""
     <div class="filters" id="filters">
       <div class="filters-top">
-        <span class="filters-title">Filters</span>
+        <div class="filters-title-row">
+          <span class="filters-title">Filters</span>
+          <button type="button" class="filters-toggle" id="filters-toggle" aria-expanded="true" aria-controls="filters-body">Hide</button>
+        </div>
         <div class="filters-controls">
           <a class="to-calendar" href="#calendar">↑ Calendar</a>
           <button type="button" class="clear-filters" id="clear-filters">Clear</button>
         </div>
       </div>
-      {render_filter_buttons("Keywords", "keyword", keywords)}
-      {render_filter_buttons("Rooms", "room", rooms, trailing_html=match_count)}
+      <div class="filters-body" id="filters-body">
+        <label class="search-wrap">
+          <span class="visually-hidden">Search schedule</span>
+          <input id="search" type="search" placeholder="Search titles, authors, topics, rooms…" autocomplete="off">
+        </label>
+        {render_filter_buttons("Keywords", "keyword", keywords)}
+        {render_filter_buttons("Rooms", "room", rooms, trailing_html=match_count)}
+      </div>
     </div>
     """
 
@@ -501,28 +493,24 @@ def generate_html(data: dict) -> str:
     .hero p {{
       margin: 0;
       color: rgba(255,255,255,0.78);
-      max-width: 60ch;
+      max-width: 70ch;
     }}
 
-    .hero-meta {{
-      display: flex;
-      flex-wrap: wrap;
-      gap: 12px;
-      margin-top: 18px;
-      align-items: center;
+    .hero p + p {{
+      margin-top: 8px;
     }}
 
-    .stat {{
-      background: rgba(255,255,255,0.08);
-      border: 1px solid rgba(255,255,255,0.12);
-      border-radius: 999px;
-      padding: 6px 12px;
-      font-size: 0.92rem;
+    .timezone-note {{
+      margin-left: auto;
+      color: #fff;
+      font-weight: 700;
+      white-space: nowrap;
     }}
 
     .hero-downloads {{
       display: flex;
       flex-wrap: wrap;
+      align-items: center;
       gap: 8px;
       margin-top: 14px;
     }}
@@ -547,19 +535,44 @@ def generate_html(data: dict) -> str:
       border-color: rgba(255,255,255,0.32);
     }}
 
+    .visually-hidden {{
+      position: absolute;
+      width: 1px;
+      height: 1px;
+      padding: 0;
+      margin: -1px;
+      overflow: hidden;
+      clip: rect(0, 0, 0, 0);
+      white-space: nowrap;
+      border: 0;
+    }}
+
     .search-wrap {{
-      flex: 1 1 260px;
-      min-width: 220px;
+      display: block;
+      margin-bottom: 6px;
     }}
 
     #search {{
       width: 100%;
-      border: 0;
-      border-radius: 999px;
-      padding: 12px 16px 12px 42px;
+      box-sizing: border-box;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      padding: 6px 10px 6px 30px;
       font: inherit;
-      background: white url('data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" fill="none" stroke="%235f677a" stroke-width="2"><circle cx="8" cy="8" r="6"/><path d="m13 13 4 4"/></svg>') 14px center no-repeat;
-      box-shadow: inset 0 0 0 1px rgba(255,255,255,0.15);
+      font-size: 0.78rem;
+      color: var(--ink);
+      background: #f7f4ef url('data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" fill="none" stroke="%235f677a" stroke-width="2"><circle cx="6" cy="6" r="4.5"/><path d="m10 10 3 3"/></svg>') 9px center no-repeat;
+      transition: border-color 0.15s ease, background 0.15s ease;
+    }}
+
+    #search:focus {{
+      outline: none;
+      border-color: rgba(212, 75, 38, 0.45);
+      background-color: #fff;
+    }}
+
+    #search::placeholder {{
+      color: #8a8490;
     }}
 
     .calendar-shell {{
@@ -593,12 +606,47 @@ def generate_html(data: dict) -> str:
       margin-bottom: 5px;
     }}
 
+    .filters.collapsed .filters-top {{
+      margin-bottom: 0;
+    }}
+
+    .filters-title-row {{
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      min-width: 0;
+    }}
+
     .filters-title {{
       font-weight: 700;
       font-size: 0.7rem;
       letter-spacing: 0.05em;
       text-transform: uppercase;
       color: var(--navy);
+    }}
+
+    .filters-toggle {{
+      border: 1px solid var(--line);
+      background: #f7f4ef;
+      color: var(--muted);
+      border-radius: 999px;
+      padding: 2px 8px;
+      font: inherit;
+      font-size: 0.68rem;
+      font-weight: 600;
+      cursor: pointer;
+      white-space: nowrap;
+      transition: background 0.15s ease, color 0.15s ease, border-color 0.15s ease;
+    }}
+
+    .filters-toggle:hover {{
+      background: var(--accent-soft);
+      border-color: rgba(212, 75, 38, 0.35);
+      color: var(--accent);
+    }}
+
+    .filters.collapsed .filters-body {{
+      display: none;
     }}
 
     .filters-controls {{
@@ -892,10 +940,6 @@ def generate_html(data: dict) -> str:
     }}
 
     .session-header {{
-      display: flex;
-      justify-content: space-between;
-      gap: 16px;
-      align-items: start;
       padding: 18px 20px;
       background: linear-gradient(180deg, #faf8f5, #fff);
       border-bottom: 1px solid var(--line);
@@ -921,16 +965,6 @@ def generate_html(data: dict) -> str:
       font-weight: 600;
     }}
 
-    .count {{
-      flex: 0 0 auto;
-      background: var(--navy);
-      color: white;
-      border-radius: 999px;
-      padding: 6px 10px;
-      font-size: 0.82rem;
-      white-space: nowrap;
-    }}
-
     .papers {{
       display: grid;
     }}
@@ -938,7 +972,7 @@ def generate_html(data: dict) -> str:
     .paper {{
       position: relative;
       display: grid;
-      grid-template-columns: 28px 92px 1fr;
+      grid-template-columns: auto 1fr;
       gap: 12px 14px;
       align-items: start;
       padding: 16px 88px 16px 14px;
@@ -958,12 +992,18 @@ def generate_html(data: dict) -> str:
       background: #fff4ed;
     }}
 
+    .paper-media {{
+      display: flex;
+      flex-direction: row;
+      align-items: flex-start;
+      gap: 10px;
+    }}
+
     .select-talk {{
-      grid-row: 1;
-      grid-column: 1;
+      order: -1;
       width: 28px;
       height: 28px;
-      margin-top: 18px;
+      margin-top: 28px;
       border: 0;
       padding: 0;
       background: transparent;
@@ -974,6 +1014,7 @@ def generate_html(data: dict) -> str:
       border-radius: 999px;
       color: #b7b0a6;
       transition: color 0.12s ease, background 0.12s ease, transform 0.12s ease;
+      flex: 0 0 auto;
     }}
 
     .select-talk:hover {{
@@ -1008,14 +1049,18 @@ def generate_html(data: dict) -> str:
       opacity: 1;
     }}
 
-    .paper > .thumb,
-    .paper > .placeholder {{
-      grid-column: 2;
+    .paper-body {{
+      min-width: 0;
     }}
 
-    .paper-body {{
-      grid-column: 3;
-      min-width: 0;
+    .conflict-mark {{
+      display: none;
+      font-size: 0.92em;
+      line-height: 1;
+    }}
+
+    .paper.conflict .conflict-mark {{
+      display: inline;
     }}
 
     .paper-calendars {{
@@ -1176,8 +1221,8 @@ def generate_html(data: dict) -> str:
     }}
 
     .thumb {{
-      width: 92px;
-      height: 68px;
+      width: 122px;
+      height: 90px;
       object-fit: cover;
       border-radius: 10px;
       background: #ece7df;
@@ -1190,33 +1235,35 @@ def generate_html(data: dict) -> str:
 
     .paper-meta {{
       display: flex;
-      flex-wrap: wrap;
-      gap: 8px;
-      align-items: center;
+      flex-direction: column;
+      align-items: flex-start;
+      gap: 6px;
       margin-bottom: 6px;
       font-size: 0.86rem;
       color: var(--muted);
     }}
 
+    .paper-time-row {{
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      align-items: center;
+    }}
+
+    .paper-tags {{
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px;
+      align-items: center;
+    }}
+
     .paper-meta time {{
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
       font-weight: 700;
       color: var(--accent);
       font-variant-numeric: tabular-nums;
-    }}
-
-    .badge {{
-      display: inline-block;
-      border-radius: 999px;
-      padding: 2px 8px;
-      font-size: 0.72rem;
-      font-weight: 700;
-      letter-spacing: 0.04em;
-      text-transform: uppercase;
-    }}
-
-    .badge.tog {{
-      background: #e8eef8;
-      color: #2b4c7e;
     }}
 
     .tag {{
@@ -1250,9 +1297,10 @@ def generate_html(data: dict) -> str:
       font-size: 0.92rem;
     }}
 
-    .authors strong {{
+    .authors .presenting {{
       color: var(--ink);
-      font-weight: 700;
+      text-decoration: underline;
+      text-underline-offset: 2px;
     }}
 
     .footer-note {{
@@ -1291,16 +1339,22 @@ def generate_html(data: dict) -> str:
     @media (max-width: 640px) {{
       .page {{ padding-inline: 14px; }}
       .paper {{
-        grid-template-columns: 24px 64px 1fr;
         gap: 10px;
         padding-right: 72px;
+        padding-left: 10px;
       }}
-      .thumb {{ width: 64px; height: 48px; }}
+      .paper-media {{
+        flex-direction: column;
+        align-items: center;
+        gap: 6px;
+      }}
       .select-talk {{
+        order: 0;
         width: 24px;
         height: 24px;
-        margin-top: 12px;
+        margin-top: 0;
       }}
+      .thumb {{ width: 64px; height: 48px; }}
       .session-header, .paper {{ padding-inline: 12px; }}
       .paper {{ padding-left: 10px; }}
       .paper-calendars {{ right: 8px; top: 10px; }}
@@ -1329,15 +1383,11 @@ def generate_html(data: dict) -> str:
     <header class="hero">
       <h1>SIGGRAPH 2026 Technical Papers</h1>
       <p>Build your schedule by selecting papers and copying / sharing / saving to calendar.</p>
+      <p>You can save either individual talks or the selected schedule to your calendar.</p>
       <div class="hero-downloads">
         <a href="{html.escape(CSV_PATH.name)}" download>Download CSV</a>
         <a href="{html.escape(JSON_PATH.name)}" download>Download JSON</a>
-      </div>
-      <div class="hero-meta">
-        <span class="stat">Times in PDT</span>
-        <label class="search-wrap">
-          <input id="search" type="search" placeholder="Search titles, authors, topics, rooms…" autocomplete="off">
-        </label>
+        <span class="timezone-note">All times in PDT</span>
       </div>
     </header>
 
@@ -1362,7 +1412,7 @@ def generate_html(data: dict) -> str:
   <div class="schedule-tray" id="schedule-tray" aria-live="polite">
     <div class="tray-copy">
       <div class="tray-count" id="tray-count">0 talks selected</div>
-      <div class="tray-note" id="tray-note">Build your personal schedule</div>
+      <div class="tray-note hidden" id="tray-note"></div>
     </div>
     <div class="tray-actions">
       <button type="button" class="tray-btn" id="tray-show-selected">Show Selected</button>
@@ -1370,7 +1420,7 @@ def generate_html(data: dict) -> str:
         <svg viewBox="0 0 16 16" aria-hidden="true"><path fill="currentColor" d="M0 6.75C0 5.784.784 5 1.75 5h1.5a.75.75 0 0 1 0 1.5h-1.5a.25.25 0 0 0-.25.25v7.5c0 .138.112.25.25.25h7.5a.25.25 0 0 0 .25-.25v-1.5a.75.75 0 0 1 1.5 0v1.5A1.75 1.75 0 0 1 9.25 16h-7.5A1.75 1.75 0 0 1 0 14.25Z"/><path fill="currentColor" d="M5 1.75C5 .784 5.784 0 6.75 0h7.5C15.216 0 16 .784 16 1.75v7.5A1.75 1.75 0 0 1 14.25 11h-7.5A1.75 1.75 0 0 1 5 9.25Zm1.75-.25a.25.25 0 0 0-.25.25v7.5c0 .138.112.25.25.25h7.5a.25.25 0 0 0 .25-.25v-7.5a.25.25 0 0 0-.25-.25Z"/></svg>
       </button>
       <button type="button" class="tray-btn icon-btn" id="tray-share" title="Share" aria-label="Share">
-        <svg viewBox="0 0 16 16" aria-hidden="true"><path fill="currentColor" d="M8 1a.75.75 0 0 1 .75.75v6.69l2.22-2.22a.75.75 0 1 1 1.06 1.06l-3.5 3.5a.75.75 0 0 1-1.06 0l-3.5-3.5a.75.75 0 0 1 1.06-1.06l2.22 2.22V1.75A.75.75 0 0 1 8 1ZM2.5 9.75a.75.75 0 0 1 .75.75v2.5c0 .69.56 1.25 1.25 1.25h7c.69 0 1.25-.56 1.25-1.25v-2.5a.75.75 0 0 1 1.5 0v2.5A2.75 2.75 0 0 1 11.5 16h-7A2.75 2.75 0 0 1 1.75 13.25v-2.5a.75.75 0 0 1 .75-.75Z"/></svg>
+        <svg viewBox="0 0 16 16" aria-hidden="true"><path fill="currentColor" d="M2.75 14A1.75 1.75 0 0 1 1 12.25v-2.5a.75.75 0 0 1 1.5 0v2.5c0 .138.112.25.25.25h10.5a.25.25 0 0 0 .25-.25v-2.5a.75.75 0 0 1 1.5 0v2.5A1.75 1.75 0 0 1 13.25 14Z"/><path fill="currentColor" d="M7.25 7.69V2.56l-1.97 1.97a.75.75 0 0 1-1.06-1.06l3.25-3.25a.75.75 0 0 1 1.06 0l3.25 3.25a.75.75 0 0 1-1.06 1.06L8.75 2.56v5.13a.75.75 0 0 1-1.5 0Z"/></svg>
       </button>
       <button type="button" class="tray-btn icon-btn" id="tray-ics" title="Download .ics" aria-label="Download .ics">
         <svg viewBox="0 0 16 16" aria-hidden="true">
@@ -1388,6 +1438,8 @@ def generate_html(data: dict) -> str:
     const clearFilters = document.getElementById('clear-filters');
     const matchCount = document.getElementById('match-count');
     const stickyShell = document.getElementById('sticky-shell');
+    const filtersEl = document.getElementById('filters');
+    const filtersToggle = document.getElementById('filters-toggle');
     const scheduleTray = document.getElementById('schedule-tray');
     const trayCount = document.getElementById('tray-count');
     const trayNote = document.getElementById('tray-note');
@@ -1458,17 +1510,32 @@ def generate_html(data: dict) -> str:
           || (a.dataset.paperId || '').localeCompare(b.dataset.paperId || ''));
     }}
 
+    function timesOverlap(a, b) {{
+      const aStart = a.dataset.start || '';
+      const aEnd = a.dataset.end || '';
+      const bStart = b.dataset.start || '';
+      const bEnd = b.dataset.end || '';
+      return Boolean(aStart && aEnd && bStart && bEnd && aStart < bEnd && bStart < aEnd);
+    }}
+
+    function conflictingPaperIds(items) {{
+      const conflicted = new Set();
+      for (let i = 0; i < items.length; i += 1) {{
+        for (let j = i + 1; j < items.length; j += 1) {{
+          if (timesOverlap(items[i], items[j])) {{
+            conflicted.add(items[i].dataset.paperId);
+            conflicted.add(items[j].dataset.paperId);
+          }}
+        }}
+      }}
+      return conflicted;
+    }}
+
     function countConflicts(items) {{
       let conflicts = 0;
       for (let i = 0; i < items.length; i += 1) {{
         for (let j = i + 1; j < items.length; j += 1) {{
-          const aStart = items[i].dataset.start;
-          const aEnd = items[i].dataset.end;
-          const bStart = items[j].dataset.start;
-          const bEnd = items[j].dataset.end;
-          if (aStart < bEnd && bStart < aEnd) {{
-            conflicts += 1;
-          }}
+          if (timesOverlap(items[i], items[j])) conflicts += 1;
         }}
       }}
       return conflicts;
@@ -1494,27 +1561,37 @@ def generate_html(data: dict) -> str:
       const items = selectedPapers();
       if (!items.length) return '';
 
-      const lines = ['# My SIGGRAPH 2026 Schedule', ''];
+      const conflicted = conflictingPaperIds(items);
+      const lines = [];
       let currentDay = '';
+      let currentSessionKey = '';
 
       items.forEach(paper => {{
         const day = paper.dataset.date || '';
+        const session = paper.dataset.session || '';
+        const room = paper.dataset.room || '';
+        const sessionKey = day + '||' + session + '||' + room;
+
         if (day !== currentDay) {{
           if (currentDay) lines.push('');
           lines.push(`## ${{formatDayHeading(day)}}`, '');
           currentDay = day;
+          currentSessionKey = '';
         }}
 
-        const time = paper.dataset.time || '';
-        const room = paper.dataset.room || '';
-        const title = paper.dataset.title || '';
-        const authors = paper.dataset.authors || '';
-        const session = paper.dataset.session || '';
-        const meta = [time, room].filter(Boolean).join(' · ');
+        if (sessionKey !== currentSessionKey) {{
+          if (currentSessionKey) lines.push('');
+          if (session) lines.push(session);
+          if (room) lines.push(room);
+          currentSessionKey = sessionKey;
+        }}
 
-        lines.push(`- **${{meta}}** — ${{title}}`);
-        if (authors) lines.push(`  - ${{authors}}`);
-        if (session) lines.push(`  - Session: ${{session}}`);
+        const title = paper.dataset.title || '';
+        const time = paper.dataset.time || '';
+        const conflictNote = conflicted.has(paper.dataset.paperId) ? ' [conflict]' : '';
+        // Two trailing spaces = Markdown hard line break within the list item
+        lines.push(`- ${{title}}  `);
+        lines.push(`  ${{time}}${{conflictNote}}`);
       }});
 
       lines.push('');
@@ -1640,10 +1717,8 @@ def generate_html(data: dict) -> str:
       const markdown = buildMarkdown();
       if (!markdown || !canShare) return;
       try {{
-        await navigator.share({{
-          title: 'My SIGGRAPH 2026 Schedule',
-          text: markdown,
-        }});
+        // Share text only — a title gets prepended on Copy/share sheets (e.g. macOS/iOS).
+        await navigator.share({{ text: markdown }});
       }} catch (error) {{
         if (error && error.name === 'AbortError') return;
         await copyMarkdown();
@@ -1746,9 +1821,13 @@ def generate_html(data: dict) -> str:
     }}
 
     function updateSelectionUI() {{
+      const items = selectedPapers();
+      const conflicted = conflictingPaperIds(items);
+
       papers.forEach(paper => {{
         const selected = selectedIds.has(paper.dataset.paperId);
         paper.classList.toggle('selected', selected);
+        paper.classList.toggle('conflict', conflicted.has(paper.dataset.paperId));
         const button = paper.querySelector('.select-talk');
         if (button) {{
           button.setAttribute('aria-pressed', selected ? 'true' : 'false');
@@ -1760,7 +1839,6 @@ def generate_html(data: dict) -> str:
         }}
       }});
 
-      const items = selectedPapers();
       const count = items.length;
       scheduleTray.classList.toggle('visible', count > 0);
       document.body.style.paddingBottom = count > 0 ? '88px' : '';
@@ -1772,9 +1850,11 @@ def generate_html(data: dict) -> str:
           ? '1 time conflict in your picks'
           : `${{conflicts}} time conflicts in your picks`;
         trayNote.classList.add('warn');
+        trayNote.classList.remove('hidden');
       }} else {{
-        trayNote.textContent = 'Ready to copy, share, or download';
+        trayNote.textContent = '';
         trayNote.classList.remove('warn');
+        trayNote.classList.add('hidden');
       }}
 
       trayShowSelected.classList.toggle('active', showSelectedOnly);
@@ -1841,6 +1921,14 @@ def generate_html(data: dict) -> str:
     }});
 
     search.addEventListener('input', applyFilters);
+
+    filtersToggle.addEventListener('click', () => {{
+      const collapsed = filtersEl.classList.toggle('collapsed');
+      filtersToggle.textContent = collapsed ? 'Show' : 'Hide';
+      filtersToggle.setAttribute('aria-expanded', collapsed ? 'false' : 'true');
+      updateStickyOffset();
+    }});
+
     window.addEventListener('load', updateStickyOffset);
     window.addEventListener('resize', updateStickyOffset);
 
