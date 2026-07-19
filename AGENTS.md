@@ -24,7 +24,7 @@ Primary user job: **build a personal schedule** by selecting talks, then **copy 
 
 - **Include only technical paper presentations** (`papers_*` conference papers and `paperstog_*` TOG journal papers).
 - **Ignore** courses, panels, talks, BoFs, CAF, posters-as-non-papers, `misc_*` session fillers, etc.
-- Order chronologically by presentation start time (ties may break arbitrarily).
+- Session block order matches the official **Papers Fast Forward** listing (`sess237`): sessions by start time, then session title; talks within a session by presentation start time.
 
 ## Product / UX principles
 
