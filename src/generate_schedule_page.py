@@ -12,6 +12,8 @@ from pathlib import Path
 JSON_PATH = Path("technical_papers_2026.json")
 CSV_PATH = Path("technical_papers_2026.csv")
 HTML_PATH = Path("index.html")
+QR_PATH = Path("qr-schedule.svg")
+SHARE_URL = "https://keenancrane.github.io/siggraph-papers-schedule/"
 IMAGE_BASE = (
     "https://s2026.conference-schedule.org/wp-content/linklings_snippets/representative_images/"
 )
@@ -436,6 +438,7 @@ def generate_html(data: dict) -> str:
     calendar = render_calendar(days)
     filters = render_filters(keywords, rooms, total)
     schedule = "".join(render_day(date, sessions) for date, sessions in days.items())
+    qr_svg = QR_PATH.read_text(encoding="utf-8").strip()
 
     return f"""<!DOCTYPE html>
 <html lang="en">
@@ -477,11 +480,20 @@ def generate_html(data: dict) -> str:
     }}
 
     .hero {{
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+      gap: 24px;
       background: linear-gradient(135deg, var(--navy) 0%, var(--navy-soft) 100%);
       color: white;
       border-radius: calc(var(--radius) + 4px);
       padding: 28px 28px 24px;
       box-shadow: var(--shadow);
+    }}
+
+    .hero-copy {{
+      min-width: 0;
+      flex: 1 1 auto;
     }}
 
     .hero h1 {{
@@ -498,6 +510,30 @@ def generate_html(data: dict) -> str:
 
     .hero p + p {{
       margin-top: 8px;
+    }}
+
+    .hero-qr {{
+      flex: 0 0 auto;
+      display: block;
+      width: 112px;
+      height: 112px;
+      padding: 8px;
+      box-sizing: border-box;
+      background: #fff;
+      border-radius: 12px;
+      box-shadow: 0 6px 18px rgba(0, 0, 0, 0.18);
+      transition: transform 0.15s ease, box-shadow 0.15s ease;
+    }}
+
+    .hero-qr:hover {{
+      transform: translateY(-1px);
+      box-shadow: 0 8px 22px rgba(0, 0, 0, 0.22);
+    }}
+
+    .hero-qr svg {{
+      display: block;
+      width: 100%;
+      height: 100%;
     }}
 
     .timezone-note {{
@@ -1339,6 +1375,16 @@ def generate_html(data: dict) -> str:
 
     @media (max-width: 640px) {{
       .page {{ padding-inline: 14px; }}
+      .hero {{
+        flex-direction: column;
+        align-items: stretch;
+        gap: 16px;
+      }}
+      .hero-qr {{
+        align-self: center;
+        width: 128px;
+        height: 128px;
+      }}
       .paper {{
         gap: 10px;
         padding-right: 72px;
@@ -1382,15 +1428,20 @@ def generate_html(data: dict) -> str:
 <body>
   <div class="page">
     <header class="hero">
-      <h1>SIGGRAPH 2026 Technical Papers</h1>
-      <p>Build your schedule by selecting papers and copying / sharing / saving to calendar.</p>
-      <p>You can save either individual talks or the selected schedule to your calendar.</p>
-      <p>Enable filters to search by string, keyword, or room number.</p>
-      <div class="hero-downloads">
-        <a href="{html.escape(CSV_PATH.name)}" download>Download CSV</a>
-        <a href="{html.escape(JSON_PATH.name)}" download>Download JSON</a>
-        <span class="timezone-note">All times in PDT</span>
+      <div class="hero-copy">
+        <h1>SIGGRAPH 2026 Technical Papers</h1>
+        <p>Build your schedule by selecting papers and copying / sharing / saving to calendar.</p>
+        <p>You can save either individual talks or the selected schedule to your calendar.</p>
+        <p>Enable filters to search by string, keyword, or room number.</p>
+        <div class="hero-downloads">
+          <a href="{html.escape(CSV_PATH.name)}" download>Download CSV</a>
+          <a href="{html.escape(JSON_PATH.name)}" download>Download JSON</a>
+          <span class="timezone-note">All times in PDT</span>
+        </div>
       </div>
+      <a class="hero-qr" href="{html.escape(SHARE_URL, quote=True)}" target="_blank" rel="noopener" title="Open shareable schedule link" aria-label="QR code linking to the shareable schedule">
+        {qr_svg}
+      </a>
     </header>
 
     <div class="calendar-shell">
