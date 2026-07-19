@@ -946,6 +946,7 @@
       <h1>SIGGRAPH 2026 Technical Papers</h1>
       <p>Build your schedule by selecting papers and copying / sharing / saving to calendar.</p>
       <p>You can save either individual talks or the selected schedule to your calendar.</p>
+      <p>Enable filters to search by string, keyword, or room number.</p>
       <div class="hero-downloads">
         <a href="technical_papers_2026.csv" download>Download CSV</a>
         <a href="technical_papers_2026.json" download>Download JSON</a>
@@ -18734,6 +18735,13 @@
       document.documentElement.style.setProperty('--sticky-offset', `${offset}px`);
     }
 
+    function setFiltersCollapsed(collapsed) {
+      filtersEl.classList.toggle('collapsed', collapsed);
+      filtersToggle.textContent = collapsed ? 'Show' : 'Hide';
+      filtersToggle.setAttribute('aria-expanded', collapsed ? 'false' : 'true');
+      updateStickyOffset();
+    }
+
     function paperMatchesFilters(paper) {
       if (showSelectedOnly) {
         return selectedIds.has(paper.dataset.paperId);
@@ -18905,10 +18913,7 @@
     search.addEventListener('input', applyFilters);
 
     filtersToggle.addEventListener('click', () => {
-      const collapsed = filtersEl.classList.toggle('collapsed');
-      filtersToggle.textContent = collapsed ? 'Show' : 'Hide';
-      filtersToggle.setAttribute('aria-expanded', collapsed ? 'false' : 'true');
-      updateStickyOffset();
+      setFiltersCollapsed(!filtersEl.classList.contains('collapsed'));
     });
 
     window.addEventListener('load', updateStickyOffset);
@@ -18916,7 +18921,7 @@
 
     loadSelection();
     updateSelectionUI();
-    updateStickyOffset();
+    setFiltersCollapsed(window.matchMedia('(max-width: 640px)').matches);
     applyFilters();
   </script>
 </body>
