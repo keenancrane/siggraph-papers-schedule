@@ -557,9 +557,10 @@ def generate_html(data: dict) -> str:
       box-sizing: border-box;
       border: 1px solid var(--line);
       border-radius: 8px;
-      padding: 6px 10px 6px 30px;
+      padding: 7px 10px 7px 30px;
       font: inherit;
-      font-size: 0.78rem;
+      /* ≥16px prevents iOS Safari from auto-zooming the field on focus */
+      font-size: 16px;
       color: var(--ink);
       background: #f7f4ef url('data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" fill="none" stroke="%235f677a" stroke-width="2"><circle cx="6" cy="6" r="4.5"/><path d="m10 10 3 3"/></svg>') 9px center no-repeat;
       transition: border-color 0.15s ease, background 0.15s ease;
