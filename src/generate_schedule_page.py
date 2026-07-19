@@ -11,7 +11,7 @@ from pathlib import Path
 
 JSON_PATH = Path("technical_papers_2026.json")
 CSV_PATH = Path("technical_papers_2026.csv")
-HTML_PATH = Path("technical_papers_schedule.html")
+HTML_PATH = Path("index.html")
 IMAGE_BASE = (
     "https://s2026.conference-schedule.org/wp-content/linklings_snippets/representative_images/"
 )
@@ -146,12 +146,6 @@ def format_ics_datetime(iso_time: str) -> str:
     return iso_time.replace("-", "").replace(":", "")
 
 
-def ics_filename(title: str) -> str:
-    safe = re.sub(r"[^\w\s-]", "", title or "", flags=re.UNICODE)
-    safe = re.sub(r"[-\s]+", "-", safe).strip("-")
-    return (safe[:60] or "siggraph-paper") + ".ics"
-
-
 def google_calendar_url(paper: dict) -> str:
     start = paper.get("presentation_start_utc") or paper.get("start_time_utc", "")
     end = paper.get("presentation_end_utc") or paper.get("end_time_utc", "")
@@ -181,11 +175,6 @@ def google_calendar_url(paper: dict) -> str:
 
 def render_calendar_links(paper: dict) -> str:
     google_url = google_calendar_url(paper)
-    ics_url = paper.get("calendar_url", "")
-    if not google_url and not ics_url:
-        return ""
-
-    ics_name = html.escape(ics_filename(paper.get("title", "")), quote=True)
     links = []
 
     if google_url:
@@ -194,16 +183,16 @@ def render_calendar_links(paper: dict) -> str:
             f'target="_blank" rel="noopener" title="Add to Google Calendar">{GOOGLE_CALENDAR_ICON}</a>'
         )
 
-    if ics_url:
-        escaped_ics = html.escape(ics_url, quote=True)
-        links.append(
-            f'<a class="cal-add cal-add-apple" href="{escaped_ics}" download="{ics_name}" '
-            f'title="Add to Apple Calendar">{APPLE_CALENDAR_ICON}</a>'
-        )
-        links.append(
-            f'<a class="cal-add cal-add-outlook" href="{escaped_ics}" download="{ics_name}" '
-            f'title="Add to Outlook">{OUTLOOK_CALENDAR_ICON}</a>'
-        )
+    # Apple / Outlook use locally generated .ics downloads (remote SIGGRAPH
+    # calendar URLs return 403 when hotlinked from other origins).
+    links.append(
+        f'<button type="button" class="cal-add cal-add-apple" data-ics-download '
+        f'title="Add to Apple Calendar">{APPLE_CALENDAR_ICON}</button>'
+    )
+    links.append(
+        f'<button type="button" class="cal-add cal-add-outlook" data-ics-download '
+        f'title="Add to Outlook">{OUTLOOK_CALENDAR_ICON}</button>'
+    )
 
     return f'<div class="paper-calendars">{"".join(links)}</div>'
 
@@ -266,9 +255,32 @@ def render_paper(paper: dict) -> str:
     topic_data = html.escape("|".join(topics), quote=True)
     room_data = html.escape(paper.get("session_room", ""), quote=True)
     calendar_links = render_calendar_links(paper)
+    paper_id = html.escape(paper.get("paper_id", ""), quote=True)
+    start_utc = html.escape(
+        paper.get("presentation_start_utc") or paper.get("start_time_utc", ""),
+        quote=True,
+    )
+    end_utc = html.escape(
+        paper.get("presentation_end_utc") or paper.get("end_time_utc", ""),
+        quote=True,
+    )
+    session_title = html.escape(
+        clean_session_title(paper.get("session_title", "")), quote=True
+    )
+    authors_plain = html.escape(paper.get("authors_all", ""), quote=True)
+    date = html.escape(paper.get("date", ""), quote=True)
+    title_attr = html.escape(paper.get("title", ""), quote=True)
+    time_display = html.escape(time_range, quote=True)
 
     return f"""
-    <article class="paper" data-search="{search_blob}" data-topics="{topic_data}" data-room="{room_data}" title="{tip}">
+    <article class="paper" data-paper-id="{paper_id}" data-date="{date}" data-start="{start_utc}" data-end="{end_utc}" data-time="{time_display}" data-session="{session_title}" data-authors="{authors_plain}" data-title="{title_attr}" data-url="{url}" data-search="{search_blob}" data-topics="{topic_data}" data-room="{room_data}" title="{tip}">
+      <button type="button" class="select-talk" aria-pressed="false" aria-label="Add to my schedule" title="Add to my schedule">
+        <svg class="select-icon" viewBox="0 0 20 20" aria-hidden="true">
+          <circle class="select-ring" cx="10" cy="10" r="7.25" fill="none" stroke="currentColor" stroke-width="1.6"/>
+          <path class="select-plus" d="M10 6.5v7M6.5 10h7" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/>
+          <path class="select-check" d="M6.6 10.2l2.2 2.2 4.6-4.8" fill="none" stroke="#fff" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>
+        </svg>
+      </button>
       {calendar_links}
       {img_html}
       <div class="paper-body">
@@ -926,15 +938,85 @@ def generate_html(data: dict) -> str:
     .paper {{
       position: relative;
       display: grid;
-      grid-template-columns: 92px 1fr;
-      gap: 16px;
-      padding: 16px 88px 16px 20px;
+      grid-template-columns: 28px 92px 1fr;
+      gap: 12px 14px;
+      align-items: start;
+      padding: 16px 88px 16px 14px;
       border-top: 1px solid rgba(221, 215, 206, 0.8);
-      transition: background 0.12s ease;
+      transition: background 0.12s ease, box-shadow 0.12s ease;
     }}
 
     .paper:first-child {{ border-top: 0; }}
     .paper:hover {{ background: #fcfbfa; }}
+
+    .paper.selected {{
+      background: #fff8f4;
+      box-shadow: inset 3px 0 0 var(--accent);
+    }}
+
+    .paper.selected:hover {{
+      background: #fff4ed;
+    }}
+
+    .select-talk {{
+      grid-row: 1;
+      grid-column: 1;
+      width: 28px;
+      height: 28px;
+      margin-top: 18px;
+      border: 0;
+      padding: 0;
+      background: transparent;
+      cursor: pointer;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      border-radius: 999px;
+      color: #b7b0a6;
+      transition: color 0.12s ease, background 0.12s ease, transform 0.12s ease;
+    }}
+
+    .select-talk:hover {{
+      color: var(--accent);
+      background: var(--accent-soft);
+    }}
+
+    .select-icon {{
+      width: 20px;
+      height: 20px;
+      display: block;
+    }}
+
+    .select-check {{
+      opacity: 0;
+    }}
+
+    .paper.selected .select-talk {{
+      color: var(--accent);
+    }}
+
+    .paper.selected .select-ring {{
+      fill: var(--accent);
+      stroke: var(--accent);
+    }}
+
+    .paper.selected .select-plus {{
+      opacity: 0;
+    }}
+
+    .paper.selected .select-check {{
+      opacity: 1;
+    }}
+
+    .paper > .thumb,
+    .paper > .placeholder {{
+      grid-column: 2;
+    }}
+
+    .paper-body {{
+      grid-column: 3;
+      min-width: 0;
+    }}
 
     .paper-calendars {{
       position: absolute;
@@ -952,7 +1034,15 @@ def generate_html(data: dict) -> str:
       border-radius: 6px;
       overflow: hidden;
       opacity: 0.88;
+      border: 0;
+      padding: 0;
+      background: transparent;
+      cursor: pointer;
       transition: transform 0.12s ease, opacity 0.12s ease, box-shadow 0.12s ease;
+    }}
+
+    a.cal-add {{
+      text-decoration: none;
     }}
 
     .cal-add:hover {{
@@ -965,6 +1055,124 @@ def generate_html(data: dict) -> str:
       display: block;
       width: 22px;
       height: 22px;
+    }}
+
+    .schedule-tray {{
+      position: fixed;
+      left: 50%;
+      bottom: 18px;
+      transform: translateX(-50%) translateY(20px);
+      z-index: 40;
+      width: min(720px, calc(100vw - 24px));
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      padding: 10px 12px 10px 16px;
+      background: rgba(20, 32, 51, 0.96);
+      color: white;
+      border-radius: 16px;
+      box-shadow: 0 16px 40px rgba(20, 32, 51, 0.28);
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity 0.18s ease, transform 0.18s ease;
+    }}
+
+    .schedule-tray.visible {{
+      opacity: 1;
+      pointer-events: auto;
+      transform: translateX(-50%) translateY(0);
+    }}
+
+    .tray-copy {{
+      display: flex;
+      flex-direction: column;
+      gap: 2px;
+      min-width: 0;
+    }}
+
+    .tray-count {{
+      font-weight: 700;
+      font-size: 0.92rem;
+      letter-spacing: -0.01em;
+    }}
+
+    .tray-note {{
+      font-size: 0.75rem;
+      color: rgba(255,255,255,0.7);
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }}
+
+    .tray-note.warn {{
+      color: #ffb4a2;
+    }}
+
+    .tray-actions {{
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      flex: 0 0 auto;
+    }}
+
+    .tray-btn {{
+      border: 1px solid rgba(255,255,255,0.18);
+      background: rgba(255,255,255,0.08);
+      color: white;
+      border-radius: 999px;
+      padding: 7px 12px;
+      font: inherit;
+      font-size: 0.78rem;
+      font-weight: 600;
+      cursor: pointer;
+      white-space: nowrap;
+      transition: background 0.12s ease, border-color 0.12s ease;
+    }}
+
+    .tray-btn:hover {{
+      background: rgba(255,255,255,0.16);
+    }}
+
+    .tray-btn.active {{
+      background: var(--accent);
+      border-color: var(--accent);
+    }}
+
+    .tray-btn.icon-btn {{
+      width: 36px;
+      height: 36px;
+      padding: 0;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      border-radius: 999px;
+    }}
+
+    .tray-btn.icon-btn svg {{
+      width: 18px;
+      height: 18px;
+      display: block;
+    }}
+
+    .tray-btn.primary {{
+      background: white;
+      color: var(--navy);
+      border-color: white;
+    }}
+
+    .tray-btn.primary:hover {{
+      background: #f3efe9;
+    }}
+
+    .tray-btn.primary.copied {{
+      background: #dff5e5;
+      color: #1f6b3a;
+      border-color: #dff5e5;
+    }}
+
+    .tray-btn.hidden {{
+      display: none;
     }}
 
     .thumb {{
@@ -1082,11 +1290,33 @@ def generate_html(data: dict) -> str:
 
     @media (max-width: 640px) {{
       .page {{ padding-inline: 14px; }}
-      .paper {{ grid-template-columns: 72px 1fr; gap: 12px; }}
-      .thumb {{ width: 72px; height: 54px; }}
-      .session-header, .paper {{ padding-inline: 14px; }}
-      .paper {{ padding-right: 78px; }}
-      .paper-calendars {{ right: 10px; }}
+      .paper {{
+        grid-template-columns: 24px 64px 1fr;
+        gap: 10px;
+        padding-right: 72px;
+      }}
+      .thumb {{ width: 64px; height: 48px; }}
+      .select-talk {{
+        width: 24px;
+        height: 24px;
+        margin-top: 12px;
+      }}
+      .session-header, .paper {{ padding-inline: 12px; }}
+      .paper {{ padding-left: 10px; }}
+      .paper-calendars {{ right: 8px; top: 10px; }}
+      .schedule-tray {{
+        bottom: 10px;
+        flex-wrap: wrap;
+        padding: 12px;
+      }}
+      .tray-actions {{
+        width: 100%;
+        justify-content: stretch;
+      }}
+      .tray-btn {{
+        flex: 1 1 auto;
+        text-align: center;
+      }}
       .filter-trailing {{
         width: auto;
         margin-top: 0;
@@ -1098,14 +1328,12 @@ def generate_html(data: dict) -> str:
   <div class="page">
     <header class="hero">
       <h1>SIGGRAPH 2026 Technical Papers</h1>
-      <p>A flat, scannable schedule of all {total} paper presentations — grouped by day and session, with quick jump navigation.</p>
+      <p>Build your schedule by selecting papers and copying / sharing / saving to calendar.</p>
       <div class="hero-downloads">
         <a href="{html.escape(CSV_PATH.name)}" download>Download CSV</a>
         <a href="{html.escape(JSON_PATH.name)}" download>Download JSON</a>
       </div>
       <div class="hero-meta">
-        <span class="stat">{total} papers</span>
-        <span class="stat">{len(days)} days</span>
         <span class="stat">Times in PDT</span>
         <label class="search-wrap">
           <input id="search" type="search" placeholder="Search titles, authors, topics, rooms…" autocomplete="off">
@@ -1131,16 +1359,64 @@ def generate_html(data: dict) -> str:
     </p>
   </div>
 
+  <div class="schedule-tray" id="schedule-tray" aria-live="polite">
+    <div class="tray-copy">
+      <div class="tray-count" id="tray-count">0 talks selected</div>
+      <div class="tray-note" id="tray-note">Build your personal schedule</div>
+    </div>
+    <div class="tray-actions">
+      <button type="button" class="tray-btn" id="tray-show-selected">Show Selected</button>
+      <button type="button" class="tray-btn icon-btn primary" id="tray-copy" title="Copy" aria-label="Copy">
+        <svg viewBox="0 0 16 16" aria-hidden="true"><path fill="currentColor" d="M0 6.75C0 5.784.784 5 1.75 5h1.5a.75.75 0 0 1 0 1.5h-1.5a.25.25 0 0 0-.25.25v7.5c0 .138.112.25.25.25h7.5a.25.25 0 0 0 .25-.25v-1.5a.75.75 0 0 1 1.5 0v1.5A1.75 1.75 0 0 1 9.25 16h-7.5A1.75 1.75 0 0 1 0 14.25Z"/><path fill="currentColor" d="M5 1.75C5 .784 5.784 0 6.75 0h7.5C15.216 0 16 .784 16 1.75v7.5A1.75 1.75 0 0 1 14.25 11h-7.5A1.75 1.75 0 0 1 5 9.25Zm1.75-.25a.25.25 0 0 0-.25.25v7.5c0 .138.112.25.25.25h7.5a.25.25 0 0 0 .25-.25v-7.5a.25.25 0 0 0-.25-.25Z"/></svg>
+      </button>
+      <button type="button" class="tray-btn icon-btn" id="tray-share" title="Share" aria-label="Share">
+        <svg viewBox="0 0 16 16" aria-hidden="true"><path fill="currentColor" d="M8 1a.75.75 0 0 1 .75.75v6.69l2.22-2.22a.75.75 0 1 1 1.06 1.06l-3.5 3.5a.75.75 0 0 1-1.06 0l-3.5-3.5a.75.75 0 0 1 1.06-1.06l2.22 2.22V1.75A.75.75 0 0 1 8 1ZM2.5 9.75a.75.75 0 0 1 .75.75v2.5c0 .69.56 1.25 1.25 1.25h7c.69 0 1.25-.56 1.25-1.25v-2.5a.75.75 0 0 1 1.5 0v2.5A2.75 2.75 0 0 1 11.5 16h-7A2.75 2.75 0 0 1 1.75 13.25v-2.5a.75.75 0 0 1 .75-.75Z"/></svg>
+      </button>
+      <button type="button" class="tray-btn icon-btn" id="tray-ics" title="Download .ics" aria-label="Download .ics">
+        <svg viewBox="0 0 16 16" aria-hidden="true">
+          <path fill="currentColor" d="M4.75 1a.75.75 0 0 0-.75.75V3H2.75A1.75 1.75 0 0 0 1 4.75v8.5C1 14.216 1.784 15 2.75 15h10.5A1.75 1.75 0 0 0 15 13.25v-8.5A1.75 1.75 0 0 0 13.25 3H12V1.75a.75.75 0 0 0-1.5 0V3h-5V1.75A.75.75 0 0 0 4.75 1ZM2.5 6v7.25c0 .138.112.25.25.25h10.5a.25.25 0 0 0 .25-.25V6Z"/>
+          <path fill="currentColor" d="M8 7.25a.75.75 0 0 1 .75.75v2.19l.72-.72a.75.75 0 1 1 1.06 1.06l-2 2a.75.75 0 0 1-1.06 0l-2-2a.75.75 0 1 1 1.06-1.06l.72.72V8a.75.75 0 0 1 .75-.75Z"/>
+        </svg>
+      </button>
+      <button type="button" class="tray-btn" id="tray-clear">Clear</button>
+    </div>
+  </div>
+
   <script>
+    const STORAGE_KEY = 'siggraph2026-my-schedule';
     const search = document.getElementById('search');
     const clearFilters = document.getElementById('clear-filters');
     const matchCount = document.getElementById('match-count');
     const stickyShell = document.getElementById('sticky-shell');
+    const scheduleTray = document.getElementById('schedule-tray');
+    const trayCount = document.getElementById('tray-count');
+    const trayNote = document.getElementById('tray-note');
+    const trayCopy = document.getElementById('tray-copy');
+    const trayShare = document.getElementById('tray-share');
+    const trayIcs = document.getElementById('tray-ics');
+    const trayClear = document.getElementById('tray-clear');
+    const trayShowSelected = document.getElementById('tray-show-selected');
     const papers = Array.from(document.querySelectorAll('.paper'));
     const sessions = Array.from(document.querySelectorAll('.session'));
     const days = Array.from(document.querySelectorAll('.day'));
     const filterButtons = Array.from(document.querySelectorAll('.filter-btn'));
     const filterActions = Array.from(document.querySelectorAll('.filter-action'));
+    const paperById = new Map(papers.map(paper => [paper.dataset.paperId, paper]));
+
+    let selectedIds = new Set();
+    let showSelectedOnly = false;
+
+    const COPY_ICON = trayCopy.innerHTML;
+    let canShare = false;
+    try {{
+      canShare = typeof navigator.share === 'function'
+        && (!navigator.canShare || navigator.canShare({{ text: 'test' }}));
+    }} catch (error) {{
+      canShare = typeof navigator.share === 'function';
+    }}
+    if (!canShare) {{
+      trayShare.classList.add('hidden');
+    }}
 
     function normalize(value) {{
       return (value || '').toLowerCase().trim();
@@ -1148,6 +1424,230 @@ def generate_html(data: dict) -> str:
 
     function splitTopics(value) {{
       return (value || '').split('|').map(item => item.trim()).filter(Boolean);
+    }}
+
+    function formatDayHeading(dateStr) {{
+      const date = new Date(`${{dateStr}}T12:00:00`);
+      return date.toLocaleDateString('en-US', {{
+        weekday: 'long',
+        month: 'long',
+        day: 'numeric',
+      }});
+    }}
+
+    function loadSelection() {{
+      try {{
+        const saved = JSON.parse(localStorage.getItem(STORAGE_KEY) || '[]');
+        if (Array.isArray(saved)) {{
+          selectedIds = new Set(saved.filter(id => paperById.has(id)));
+        }}
+      }} catch (error) {{
+        selectedIds = new Set();
+      }}
+    }}
+
+    function saveSelection() {{
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(Array.from(selectedIds)));
+    }}
+
+    function selectedPapers() {{
+      return Array.from(selectedIds)
+        .map(id => paperById.get(id))
+        .filter(Boolean)
+        .sort((a, b) => (a.dataset.start || '').localeCompare(b.dataset.start || '')
+          || (a.dataset.paperId || '').localeCompare(b.dataset.paperId || ''));
+    }}
+
+    function countConflicts(items) {{
+      let conflicts = 0;
+      for (let i = 0; i < items.length; i += 1) {{
+        for (let j = i + 1; j < items.length; j += 1) {{
+          const aStart = items[i].dataset.start;
+          const aEnd = items[i].dataset.end;
+          const bStart = items[j].dataset.start;
+          const bEnd = items[j].dataset.end;
+          if (aStart < bEnd && bStart < aEnd) {{
+            conflicts += 1;
+          }}
+        }}
+      }}
+      return conflicts;
+    }}
+
+    function togglePaper(paper) {{
+      const id = paper.dataset.paperId;
+      if (!id) return;
+      if (selectedIds.has(id)) {{
+        selectedIds.delete(id);
+      }} else {{
+        selectedIds.add(id);
+      }}
+      if (selectedIds.size === 0) {{
+        showSelectedOnly = false;
+      }}
+      saveSelection();
+      updateSelectionUI();
+      applyFilters();
+    }}
+
+    function buildMarkdown() {{
+      const items = selectedPapers();
+      if (!items.length) return '';
+
+      const lines = ['# My SIGGRAPH 2026 Schedule', ''];
+      let currentDay = '';
+
+      items.forEach(paper => {{
+        const day = paper.dataset.date || '';
+        if (day !== currentDay) {{
+          if (currentDay) lines.push('');
+          lines.push(`## ${{formatDayHeading(day)}}`, '');
+          currentDay = day;
+        }}
+
+        const time = paper.dataset.time || '';
+        const room = paper.dataset.room || '';
+        const title = paper.dataset.title || '';
+        const authors = paper.dataset.authors || '';
+        const session = paper.dataset.session || '';
+        const meta = [time, room].filter(Boolean).join(' · ');
+
+        lines.push(`- **${{meta}}** — ${{title}}`);
+        if (authors) lines.push(`  - ${{authors}}`);
+        if (session) lines.push(`  - Session: ${{session}}`);
+      }});
+
+      lines.push('');
+      return lines.join('\\n');
+    }}
+
+    function icsEscape(value) {{
+      return String(value || '')
+        .replace(/\\\\/g, '\\\\\\\\')
+        .replace(/;/g, '\\\\;')
+        .replace(/,/g, '\\\\,')
+        .replace(/\\n/g, '\\\\n');
+    }}
+
+    function formatIcsDate(isoTime) {{
+      return String(isoTime || '')
+        .replace(/\\.\\d+(?=Z|$)/, '')
+        .replace(/[-:]/g, '');
+    }}
+
+    function buildEventLines(paper) {{
+      const uid = `${{paper.dataset.paperId || 'talk'}}@siggraph2026-schedule`;
+      const stamp = formatIcsDate(new Date().toISOString());
+      const start = formatIcsDate(paper.dataset.start);
+      const end = formatIcsDate(paper.dataset.end);
+      const title = icsEscape(paper.dataset.title);
+      const location = icsEscape(paper.dataset.room);
+      const description = icsEscape(
+        [
+          paper.dataset.authors ? `Authors: ${{paper.dataset.authors}}` : '',
+          paper.dataset.session ? `Session: ${{paper.dataset.session}}` : '',
+        ].filter(Boolean).join('\\n')
+      );
+      return [
+        'BEGIN:VEVENT',
+        `UID:${{uid}}`,
+        `DTSTAMP:${{stamp}}`,
+        `DTSTART:${{start}}`,
+        `DTEND:${{end}}`,
+        `SUMMARY:${{title}}`,
+        `LOCATION:${{location}}`,
+        `DESCRIPTION:${{description}}`,
+        'END:VEVENT',
+      ];
+    }}
+
+    function buildCalendarIcs(paperList) {{
+      const events = paperList.flatMap(buildEventLines);
+      return [
+        'BEGIN:VCALENDAR',
+        'VERSION:2.0',
+        'PRODID:-//SIGGRAPH 2026 Technical Papers//EN',
+        'CALSCALE:GREGORIAN',
+        'METHOD:PUBLISH',
+        'X-WR-CALNAME:My SIGGRAPH 2026 Schedule',
+        ...events,
+        'END:VCALENDAR',
+        '',
+      ].join('\\r\\n');
+    }}
+
+    function downloadIcsBlob(ics, filename) {{
+      const link = document.createElement('a');
+      link.download = filename;
+      link.rel = 'noopener';
+      link.style.display = 'none';
+      document.body.appendChild(link);
+
+      try {{
+        const blob = new Blob([ics], {{ type: 'text/calendar;charset=utf-8' }});
+        const url = URL.createObjectURL(blob);
+        link.href = url;
+        link.click();
+        window.setTimeout(() => {{
+          URL.revokeObjectURL(url);
+          link.remove();
+        }}, 2000);
+      }} catch (error) {{
+        link.href = 'data:text/calendar;charset=utf-8,' + encodeURIComponent(ics);
+        link.click();
+        link.remove();
+      }}
+    }}
+
+    function downloadPaperIcs(paper) {{
+      const safeTitle = (paper.dataset.title || 'siggraph-paper')
+        .replace(/[^\\w\\s-]+/g, '')
+        .trim()
+        .replace(/[-\\s]+/g, '-')
+        .slice(0, 60) || 'siggraph-paper';
+      downloadIcsBlob(buildCalendarIcs([paper]), `${{safeTitle}}.ics`);
+    }}
+
+    function downloadScheduleIcs() {{
+      const items = selectedPapers();
+      if (!items.length) return;
+      downloadIcsBlob(buildCalendarIcs(items), 'siggraph-2026-my-schedule.ics');
+    }}
+
+    async function copyMarkdown() {{
+      const markdown = buildMarkdown();
+      if (!markdown) return;
+      try {{
+        await navigator.clipboard.writeText(markdown);
+      }} catch (error) {{
+        const area = document.createElement('textarea');
+        area.value = markdown;
+        document.body.appendChild(area);
+        area.select();
+        document.execCommand('copy');
+        area.remove();
+      }}
+      trayCopy.classList.add('copied');
+      trayCopy.title = 'Copied!';
+      window.setTimeout(() => {{
+        trayCopy.classList.remove('copied');
+        trayCopy.title = 'Copy';
+        trayCopy.innerHTML = COPY_ICON;
+      }}, 1600);
+    }}
+
+    async function shareMarkdown() {{
+      const markdown = buildMarkdown();
+      if (!markdown || !canShare) return;
+      try {{
+        await navigator.share({{
+          title: 'My SIGGRAPH 2026 Schedule',
+          text: markdown,
+        }});
+      }} catch (error) {{
+        if (error && error.name === 'AbortError') return;
+        await copyMarkdown();
+      }}
     }}
 
     function activeValues(group) {{
@@ -1165,7 +1665,7 @@ def generate_html(data: dict) -> str:
     }}
 
     function filtersAreDefault() {{
-      return allButtonsActive('keyword') && allButtonsActive('room') && !normalize(search.value);
+      return allButtonsActive('keyword') && allButtonsActive('room') && !normalize(search.value) && !showSelectedOnly;
     }}
 
     function updateClearFiltersButton() {{
@@ -1178,6 +1678,9 @@ def generate_html(data: dict) -> str:
     }}
 
     function paperMatchesFilters(paper) {{
+      if (showSelectedOnly) {{
+        return selectedIds.has(paper.dataset.paperId);
+      }}
       const activeKeywords = activeValues('keyword');
       const activeRooms = activeValues('room');
       const topics = splitTopics(paper.dataset.topics);
@@ -1200,10 +1703,16 @@ def generate_html(data: dict) -> str:
       const query = normalize(search.value);
 
       papers.forEach(paper => {{
-        const haystack = paper.dataset.search || '';
-        const searchMatch = !query || haystack.includes(query);
-        const filterMatch = paperMatchesFilters(paper);
-        paper.classList.toggle('hidden', !(searchMatch && filterMatch));
+        let visible;
+        if (showSelectedOnly) {{
+          visible = selectedIds.has(paper.dataset.paperId);
+        }} else {{
+          const haystack = paper.dataset.search || '';
+          const searchMatch = !query || haystack.includes(query);
+          const filterMatch = paperMatchesFilters(paper);
+          visible = searchMatch && filterMatch;
+        }}
+        paper.classList.toggle('hidden', !visible);
       }});
 
       sessions.forEach(session => {{
@@ -1236,6 +1745,60 @@ def generate_html(data: dict) -> str:
       applyFilters();
     }}
 
+    function updateSelectionUI() {{
+      papers.forEach(paper => {{
+        const selected = selectedIds.has(paper.dataset.paperId);
+        paper.classList.toggle('selected', selected);
+        const button = paper.querySelector('.select-talk');
+        if (button) {{
+          button.setAttribute('aria-pressed', selected ? 'true' : 'false');
+          button.setAttribute(
+            'aria-label',
+            selected ? 'Remove from my schedule' : 'Add to my schedule'
+          );
+          button.title = selected ? 'Remove from my schedule' : 'Add to my schedule';
+        }}
+      }});
+
+      const items = selectedPapers();
+      const count = items.length;
+      scheduleTray.classList.toggle('visible', count > 0);
+      document.body.style.paddingBottom = count > 0 ? '88px' : '';
+      trayCount.textContent = count === 1 ? '1 talk selected' : `${{count}} talks selected`;
+
+      const conflicts = countConflicts(items);
+      if (conflicts > 0) {{
+        trayNote.textContent = conflicts === 1
+          ? '1 time conflict in your picks'
+          : `${{conflicts}} time conflicts in your picks`;
+        trayNote.classList.add('warn');
+      }} else {{
+        trayNote.textContent = 'Ready to copy, share, or download';
+        trayNote.classList.remove('warn');
+      }}
+
+      trayShowSelected.classList.toggle('active', showSelectedOnly);
+    }}
+
+    papers.forEach(paper => {{
+      const button = paper.querySelector('.select-talk');
+      if (!button) return;
+      button.addEventListener('click', event => {{
+        event.preventDefault();
+        event.stopPropagation();
+        togglePaper(paper);
+      }});
+    }});
+
+    document.querySelectorAll('[data-ics-download]').forEach(button => {{
+      button.addEventListener('click', event => {{
+        event.preventDefault();
+        event.stopPropagation();
+        const paper = button.closest('.paper');
+        if (paper) downloadPaperIcs(paper);
+      }});
+    }});
+
     filterButtons.forEach(button => {{
       button.addEventListener('click', () => {{
         button.classList.toggle('active');
@@ -1253,16 +1816,38 @@ def generate_html(data: dict) -> str:
 
     clearFilters.addEventListener('click', () => {{
       search.value = '';
+      showSelectedOnly = false;
       setGroupState('keyword', true);
       setGroupState('room', true);
+      updateSelectionUI();
+    }});
+
+    trayShowSelected.addEventListener('click', () => {{
+      showSelectedOnly = !showSelectedOnly;
+      updateSelectionUI();
+      applyFilters();
+    }});
+
+    trayCopy.addEventListener('click', copyMarkdown);
+    trayShare.addEventListener('click', shareMarkdown);
+    trayIcs.addEventListener('click', downloadScheduleIcs);
+
+    trayClear.addEventListener('click', () => {{
+      selectedIds.clear();
+      showSelectedOnly = false;
+      saveSelection();
+      updateSelectionUI();
+      applyFilters();
     }});
 
     search.addEventListener('input', applyFilters);
     window.addEventListener('load', updateStickyOffset);
     window.addEventListener('resize', updateStickyOffset);
+
+    loadSelection();
+    updateSelectionUI();
     updateStickyOffset();
-    updateMatchCount();
-    updateClearFiltersButton();
+    applyFilters();
   </script>
 </body>
 </html>
@@ -1273,9 +1858,8 @@ def main():
     with JSON_PATH.open(encoding="utf-8") as handle:
         data = json.load(handle)
     content = generate_html(data)
-    for path in (HTML_PATH, Path("index.html")):
-        path.write_text(content, encoding="utf-8")
-        print(f"Wrote {path} ({path.stat().st_size // 1024} KB)")
+    HTML_PATH.write_text(content, encoding="utf-8")
+    print(f"Wrote {HTML_PATH} ({HTML_PATH.stat().st_size // 1024} KB)")
 
 
 if __name__ == "__main__":
