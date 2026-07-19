@@ -187,6 +187,11 @@ def render_calendar_links(paper: dict) -> str:
 
 
 def build_structure(papers: list) -> OrderedDict:
+    """Group papers into day → session blocks in Papers Fast Forward order.
+
+    Fast Forward (sess237) lists session blocks sorted by session start time,
+    then session title; talks within a session stay in presentation order.
+    """
     days = OrderedDict()
     for paper in papers:
         date = paper["date"]
@@ -196,6 +201,8 @@ def build_structure(papers: list) -> OrderedDict:
             days[date][session_id] = {
                 "session_id": session_id,
                 "title": clean_session_title(paper.get("session_title", "")),
+                "sort_title": paper.get("session_title", "") or "",
+                "start_utc": paper.get("session_start_utc", "") or "",
                 "room": paper.get("session_room", ""),
                 "start": paper.get("session_start_time_display", ""),
                 "end": paper.get("session_end_time_display", ""),
@@ -206,7 +213,25 @@ def build_structure(papers: list) -> OrderedDict:
                 "papers": [],
             }
         days[date][session_id]["papers"].append(paper)
-    return days
+
+    ordered_days = OrderedDict()
+    for date, sessions in days.items():
+        session_items = []
+        for session in sessions.values():
+            session["papers"].sort(
+                key=lambda p: (
+                    p.get("presentation_start_utc") or "",
+                    p.get("paper_id") or "",
+                )
+            )
+            session_items.append(session)
+        session_items.sort(
+            key=lambda s: (s["start_utc"], s["sort_title"], s["session_id"])
+        )
+        ordered_days[date] = OrderedDict(
+            (session["session_id"], session) for session in session_items
+        )
+    return ordered_days
 
 
 def render_paper(paper: dict) -> str:
