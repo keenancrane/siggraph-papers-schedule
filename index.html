@@ -17,7 +17,7 @@
       --navy-soft: #24324a;
       --shadow: 0 10px 30px rgba(20, 32, 51, 0.08);
       --radius: 16px;
-      --sticky-offset: 140px;
+      --sticky-offset: 110px;
     }
 
     * { box-sizing: border-box; }
@@ -123,18 +123,18 @@
       position: sticky;
       top: 0;
       z-index: 20;
-      margin-top: 12px;
-      padding: 8px 0 10px;
+      margin-top: 10px;
+      padding: 6px 0 8px;
       backdrop-filter: blur(10px);
       background: rgba(244, 241, 236, 0.92);
       border-bottom: 1px solid rgba(221, 215, 206, 0.8);
     }
 
     .filters {
-      padding: 8px 12px 10px;
+      padding: 6px 10px 7px;
       background: var(--surface);
       border: 1px solid var(--line);
-      border-radius: 12px;
+      border-radius: 10px;
       box-shadow: var(--shadow);
     }
 
@@ -142,13 +142,13 @@
       display: flex;
       justify-content: space-between;
       align-items: center;
-      gap: 10px;
-      margin-bottom: 8px;
+      gap: 8px;
+      margin-bottom: 5px;
     }
 
     .filters-title {
       font-weight: 700;
-      font-size: 0.78rem;
+      font-size: 0.7rem;
       letter-spacing: 0.05em;
       text-transform: uppercase;
       color: var(--navy);
@@ -157,7 +157,7 @@
     .filters-controls {
       display: flex;
       align-items: center;
-      gap: 8px;
+      gap: 6px;
       flex-wrap: wrap;
     }
 
@@ -166,8 +166,8 @@
       background: #f7f4ef;
       color: var(--navy);
       border-radius: 999px;
-      padding: 4px 10px;
-      font-size: 0.74rem;
+      padding: 2px 8px;
+      font-size: 0.68rem;
       font-weight: 600;
       text-decoration: none;
       white-space: nowrap;
@@ -185,9 +185,9 @@
       background: #f7f4ef;
       color: var(--muted);
       border-radius: 999px;
-      padding: 4px 10px;
+      padding: 2px 8px;
       font: inherit;
-      font-size: 0.74rem;
+      font-size: 0.68rem;
       font-weight: 600;
       cursor: pointer;
       white-space: nowrap;
@@ -198,34 +198,48 @@
       background: var(--accent-soft);
       color: var(--accent);
       border-color: rgba(212, 75, 38, 0.35);
-      box-shadow: 0 0 0 3px rgba(212, 75, 38, 0.12);
+      box-shadow: 0 0 0 2px rgba(212, 75, 38, 0.12);
     }
 
     .filter-group + .filter-group {
-      margin-top: 7px;
-      padding-top: 7px;
+      margin-top: 5px;
+      padding-top: 5px;
       border-top: 1px solid rgba(221, 215, 206, 0.8);
     }
 
-    .filter-group-head {
+    .filter-row {
       display: flex;
-      justify-content: space-between;
       align-items: center;
-      gap: 10px;
-      margin-bottom: 5px;
+      flex-wrap: wrap;
+      gap: 4px 8px;
+    }
+
+    .filter-heading {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      flex: 0 0 auto;
+      margin-right: 2px;
     }
 
     .filter-label {
-      font-size: 0.7rem;
+      font-size: 0.64rem;
       font-weight: 700;
       color: var(--muted);
       text-transform: uppercase;
       letter-spacing: 0.05em;
+      white-space: nowrap;
     }
 
     .filter-actions {
-      display: flex;
-      gap: 6px;
+      display: inline-flex;
+      align-items: center;
+      gap: 0;
+      border: 1px solid var(--line);
+      border-radius: 999px;
+      background: #f7f4ef;
+      padding: 0 2px;
+      line-height: 1;
     }
 
     .filter-action {
@@ -233,20 +247,35 @@
       background: transparent;
       color: var(--accent);
       font: inherit;
-      font-size: 0.68rem;
+      font-size: 0.64rem;
       font-weight: 600;
       cursor: pointer;
-      padding: 0;
+      padding: 2px 7px;
+      border-radius: 999px;
     }
 
     .filter-action:hover {
-      text-decoration: underline;
+      background: rgba(212, 75, 38, 0.1);
+    }
+
+    .filter-action-sep {
+      color: #c5beb4;
+      font-size: 0.64rem;
+      line-height: 1;
+      user-select: none;
     }
 
     .filter-buttons {
       display: flex;
       flex-wrap: wrap;
-      gap: 5px;
+      gap: 3px;
+      flex: 1 1 auto;
+      min-width: 0;
+    }
+
+    .filter-trailing {
+      flex: 0 0 auto;
+      margin-left: auto;
     }
 
     .filter-btn {
@@ -254,10 +283,10 @@
       background: #faf8f5;
       color: var(--ink);
       border-radius: 999px;
-      padding: 3px 8px;
+      padding: 1px 6px;
       font: inherit;
-      font-size: 0.72rem;
-      line-height: 1.3;
+      font-size: 0.68rem;
+      line-height: 1.35;
       cursor: pointer;
       transition: background 0.12s ease, border-color 0.12s ease, color 0.12s ease, opacity 0.12s ease;
     }
@@ -272,19 +301,12 @@
       opacity: 0.72;
     }
 
-    .filters-footer {
-      display: flex;
-      justify-content: flex-end;
-      margin-top: 7px;
-      padding-top: 6px;
-      border-top: 1px solid rgba(221, 215, 206, 0.65);
-    }
-
     .match-count {
-      font-size: 0.72rem;
+      font-size: 0.68rem;
       color: var(--muted);
       font-variant-numeric: tabular-nums;
       white-space: nowrap;
+      line-height: 1.35;
     }
 
     .match-count.filtered {
@@ -306,11 +328,10 @@
       border-radius: var(--radius);
       overflow: hidden;
       box-shadow: var(--shadow);
-      transition: transform 0.15s ease, border-color 0.15s ease;
+      transition: border-color 0.15s ease;
     }
 
     .day-card:hover {
-      transform: translateY(-2px);
       border-color: var(--accent);
     }
 
@@ -318,7 +339,7 @@
       display: flex;
       justify-content: space-between;
       align-items: baseline;
-      padding: 12px 14px 8px;
+      padding: 10px 12px 7px;
       background: var(--accent-soft);
       border-bottom: 1px solid var(--line);
       text-decoration: none;
@@ -345,17 +366,19 @@
     .day-card-sessions {
       display: grid;
       gap: 0;
-      max-height: 220px;
+      max-height: 200px;
       overflow: auto;
+      overscroll-behavior: contain;
+      -webkit-overflow-scrolling: touch;
     }
 
     .cal-session {
       display: block;
-      padding: 8px 12px;
+      padding: 6px 10px;
       text-decoration: none;
       color: inherit;
       border-top: 1px solid rgba(221, 215, 206, 0.65);
-      font-size: 0.82rem;
+      font-size: 0.78rem;
     }
 
     .cal-session:hover {
@@ -365,16 +388,16 @@
     .cal-time {
       display: block;
       color: var(--muted);
-      font-size: 0.76rem;
-      line-height: 1.25;
-      margin-bottom: 3px;
+      font-size: 0.7rem;
+      line-height: 1.2;
+      margin-bottom: 2px;
       font-variant-numeric: tabular-nums;
     }
 
     .cal-title {
       display: block;
       color: var(--ink);
-      line-height: 1.35;
+      line-height: 1.3;
     }
 
     .cal-session.hidden {
@@ -601,18 +624,38 @@
     .hidden { display: none !important; }
 
     @media (max-width: 980px) {
-      .calendar { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+      .calendar {
+        display: flex;
+        gap: 10px;
+        overflow-x: auto;
+        overscroll-behavior-x: contain;
+        scroll-snap-type: x mandatory;
+        -webkit-overflow-scrolling: touch;
+        padding-bottom: 2px;
+      }
+
+      .day-card {
+        flex: 0 0 min(72vw, 260px);
+        scroll-snap-align: start;
+      }
+
+      .day-card-sessions {
+        max-height: none;
+        overflow: visible;
+      }
     }
 
     @media (max-width: 640px) {
       .page { padding-inline: 14px; }
-      .calendar { grid-template-columns: 1fr; }
       .paper { grid-template-columns: 72px 1fr; gap: 12px; }
       .thumb { width: 72px; height: 54px; }
       .session-header, .paper { padding-inline: 14px; }
       .paper { padding-right: 78px; }
       .paper-calendars { right: 10px; }
-      .filters-top { align-items: flex-start; flex-direction: column; }
+      .filter-trailing {
+        width: auto;
+        margin-top: 0;
+      }
     }
   </style>
 </head>
@@ -678,36 +721,41 @@
         <span class="filters-title">Filters</span>
         <div class="filters-controls">
           <a class="to-calendar" href="#calendar">↑ Calendar</a>
-          <button type="button" class="clear-filters" id="clear-filters">Clear Filters</button>
+          <button type="button" class="clear-filters" id="clear-filters">Clear</button>
         </div>
       </div>
       
     <div class="filter-group" data-filter-group="keyword">
-      <div class="filter-group-head">
-        <span class="filter-label">Keywords</span>
-        <span class="filter-actions">
-          <button type="button" class="filter-action" data-filter-action="all-on" data-filter-group="keyword">All on</button>
-          <button type="button" class="filter-action" data-filter-action="all-off" data-filter-group="keyword">All off</button>
-        </span>
+      <div class="filter-row">
+        <div class="filter-heading">
+          <span class="filter-label">Keywords</span>
+          <span class="filter-actions" role="group" aria-label="Keywords selection">
+            <button type="button" class="filter-action" data-filter-action="all-on" data-filter-group="keyword">All</button>
+            <span class="filter-action-sep" aria-hidden="true">|</span>
+            <button type="button" class="filter-action" data-filter-action="all-off" data-filter-group="keyword">None</button>
+          </span>
+        </div>
+        <div class="filter-buttons"><button type="button" class="filter-btn active" data-filter-group="keyword" data-filter-value="Animation">Animation</button><button type="button" class="filter-btn active" data-filter-group="keyword" data-filter-value="Artificial Intelligence/Machine Learning" title="Artificial Intelligence/Machine Learning">AI/ML</button><button type="button" class="filter-btn active" data-filter-group="keyword" data-filter-value="Augmented Reality">Augmented Reality</button><button type="button" class="filter-btn active" data-filter-group="keyword" data-filter-value="Display">Display</button><button type="button" class="filter-btn active" data-filter-group="keyword" data-filter-value="Fabrication">Fabrication</button><button type="button" class="filter-btn active" data-filter-group="keyword" data-filter-value="Games">Games</button><button type="button" class="filter-btn active" data-filter-group="keyword" data-filter-value="Generative AI">Generative AI</button><button type="button" class="filter-btn active" data-filter-group="keyword" data-filter-value="Geometry">Geometry</button><button type="button" class="filter-btn active" data-filter-group="keyword" data-filter-value="Haptics">Haptics</button><button type="button" class="filter-btn active" data-filter-group="keyword" data-filter-value="Hardware">Hardware</button><button type="button" class="filter-btn active" data-filter-group="keyword" data-filter-value="Image Processing">Image Processing</button><button type="button" class="filter-btn active" data-filter-group="keyword" data-filter-value="Lighting">Lighting</button><button type="button" class="filter-btn active" data-filter-group="keyword" data-filter-value="Modeling">Modeling</button><button type="button" class="filter-btn active" data-filter-group="keyword" data-filter-value="Real-Time">Real-Time</button><button type="button" class="filter-btn active" data-filter-group="keyword" data-filter-value="Rendering">Rendering</button><button type="button" class="filter-btn active" data-filter-group="keyword" data-filter-value="Robotics">Robotics</button><button type="button" class="filter-btn active" data-filter-group="keyword" data-filter-value="Scientific Visualization">Scientific Visualization</button><button type="button" class="filter-btn active" data-filter-group="keyword" data-filter-value="Simulation">Simulation</button><button type="button" class="filter-btn active" data-filter-group="keyword" data-filter-value="Virtual Reality" title="Virtual Reality">VR</button></div>
+        
       </div>
-      <div class="filter-buttons"><button type="button" class="filter-btn active" data-filter-group="keyword" data-filter-value="Animation">Animation</button><button type="button" class="filter-btn active" data-filter-group="keyword" data-filter-value="Artificial Intelligence/Machine Learning">Artificial Intelligence/Machine Learning</button><button type="button" class="filter-btn active" data-filter-group="keyword" data-filter-value="Augmented Reality">Augmented Reality</button><button type="button" class="filter-btn active" data-filter-group="keyword" data-filter-value="Display">Display</button><button type="button" class="filter-btn active" data-filter-group="keyword" data-filter-value="Fabrication">Fabrication</button><button type="button" class="filter-btn active" data-filter-group="keyword" data-filter-value="Games">Games</button><button type="button" class="filter-btn active" data-filter-group="keyword" data-filter-value="Generative AI">Generative AI</button><button type="button" class="filter-btn active" data-filter-group="keyword" data-filter-value="Geometry">Geometry</button><button type="button" class="filter-btn active" data-filter-group="keyword" data-filter-value="Haptics">Haptics</button><button type="button" class="filter-btn active" data-filter-group="keyword" data-filter-value="Hardware">Hardware</button><button type="button" class="filter-btn active" data-filter-group="keyword" data-filter-value="Image Processing">Image Processing</button><button type="button" class="filter-btn active" data-filter-group="keyword" data-filter-value="Lighting">Lighting</button><button type="button" class="filter-btn active" data-filter-group="keyword" data-filter-value="Modeling">Modeling</button><button type="button" class="filter-btn active" data-filter-group="keyword" data-filter-value="Real-Time">Real-Time</button><button type="button" class="filter-btn active" data-filter-group="keyword" data-filter-value="Rendering">Rendering</button><button type="button" class="filter-btn active" data-filter-group="keyword" data-filter-value="Robotics">Robotics</button><button type="button" class="filter-btn active" data-filter-group="keyword" data-filter-value="Scientific Visualization">Scientific Visualization</button><button type="button" class="filter-btn active" data-filter-group="keyword" data-filter-value="Simulation">Simulation</button><button type="button" class="filter-btn active" data-filter-group="keyword" data-filter-value="Virtual Reality">Virtual Reality</button></div>
     </div>
     
       
     <div class="filter-group" data-filter-group="room">
-      <div class="filter-group-head">
-        <span class="filter-label">Rooms</span>
-        <span class="filter-actions">
-          <button type="button" class="filter-action" data-filter-action="all-on" data-filter-group="room">All on</button>
-          <button type="button" class="filter-action" data-filter-action="all-off" data-filter-group="room">All off</button>
-        </span>
+      <div class="filter-row">
+        <div class="filter-heading">
+          <span class="filter-label">Rooms</span>
+          <span class="filter-actions" role="group" aria-label="Rooms selection">
+            <button type="button" class="filter-action" data-filter-action="all-on" data-filter-group="room">All</button>
+            <span class="filter-action-sep" aria-hidden="true">|</span>
+            <button type="button" class="filter-action" data-filter-action="all-off" data-filter-group="room">None</button>
+          </span>
+        </div>
+        <div class="filter-buttons"><button type="button" class="filter-btn active" data-filter-group="room" data-filter-value="Room 403 A" title="Room 403 A">403 A</button><button type="button" class="filter-btn active" data-filter-group="room" data-filter-value="Room 403 B" title="Room 403 B">403 B</button><button type="button" class="filter-btn active" data-filter-group="room" data-filter-value="Room 408 A" title="Room 408 A">408 A</button><button type="button" class="filter-btn active" data-filter-group="room" data-filter-value="Room 408 B" title="Room 408 B">408 B</button></div>
+        <div class="filter-trailing"><span class="match-count" id="match-count">345 of 345 papers</span></div>
       </div>
-      <div class="filter-buttons"><button type="button" class="filter-btn active" data-filter-group="room" data-filter-value="Room 403 A">Room 403 A</button><button type="button" class="filter-btn active" data-filter-group="room" data-filter-value="Room 403 B">Room 403 B</button><button type="button" class="filter-btn active" data-filter-group="room" data-filter-value="Room 408 A">Room 408 A</button><button type="button" class="filter-btn active" data-filter-group="room" data-filter-value="Room 408 B">Room 408 B</button></div>
     </div>
     
-      <div class="filters-footer">
-        <span class="match-count" id="match-count">345 of 345 papers</span>
-      </div>
     </div>
     
     </div>
